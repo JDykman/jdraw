@@ -23,6 +23,12 @@ body {
 /* Push the style panel down to clear the sidebar toggle tab */
 .tlui-layout__top__right {
 	padding-top: 48px;
+	margin-right: 0;
+	transition: margin-right 0.25s ease;
+}
+
+.sidebar-open .tlui-layout__top__right {
+	margin-right: 350px;
 }
 
 

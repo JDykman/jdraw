@@ -504,7 +504,7 @@ function convertGeoShapeToTldrawShape(
 				fill,
 				font: defaultGeoShape.props?.font ?? 'draw',
 				geo: shapeType,
-				growY: defaultGeoShape.props?.growY ?? 0,
+				growY: focusedShape.h !== undefined ? 0 : (defaultGeoShape.props?.growY ?? 0),
 				h: focusedShape.h ?? defaultGeoShape.props?.h ?? 100,
 				labelColor: defaultGeoShape.props?.labelColor ?? 'black',
 				richText,

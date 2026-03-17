@@ -78,10 +78,20 @@ function toModelMessages(agentMessages: AgentMessage[]): ModelMessage[] {
 
 		for (const contentItem of tlMessage.content) {
 			if (contentItem.type === 'image') {
-				content.push({
-					type: 'image',
-					image: contentItem.image!,
-				})
+				const imageData = contentItem.image!
+				if (imageData.startsWith('data:')) {
+					// AI SDK doesn't accept data: URLs — convert to Uint8Array
+					const [header, base64] = imageData.split(',')
+					const mimeType = header.split(':')[1].split(';')[0]
+					const binary = atob(base64)
+					const bytes = new Uint8Array(binary.length)
+					for (let i = 0; i < binary.length; i++) {
+						bytes[i] = binary.charCodeAt(i)
+					}
+					content.push({ type: 'image', image: bytes, mimeType })
+				} else {
+					content.push({ type: 'image', image: imageData })
+				}
 			} else {
 				content.push({
 					type: 'text',

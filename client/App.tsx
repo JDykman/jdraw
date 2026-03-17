@@ -84,7 +84,7 @@ function App() {
 
 	return (
 		<TldrawUiToastsProvider>
-			<div className="tldraw-agent-container">
+			<div className={`tldraw-agent-container${sidebarOpen ? ' sidebar-open' : ''}`}>
 				<div className="tldraw-canvas">
 					<Tldraw
 						persistenceKey="tldraw-agent-demo"
