@@ -177,7 +177,7 @@ function convertGeoShapeToFocused(editor: Editor, shape: TLGeoShape): FocusedGeo
 		_type: GEO_TO_FOCUSED_TYPES[shape.props.geo],
 		color: shape.props.color,
 		fill: convertTldrawFillToFocusedFill(shape.props.fill),
-		h: shape.props.h,
+		h: shape.props.h + (shape.props.growY ?? 0),
 		note: (shape.meta.note as string) ?? '',
 		shapeId: convertTldrawIdToSimpleId(shape.id),
 		text: text ?? '',

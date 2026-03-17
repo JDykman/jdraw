@@ -157,7 +157,7 @@ export const CanvasLintsPartDefinition: PromptPartDefinition<CanvasLintsPart> = 
 		if (growYLints.length > 0) {
 			const shapeIds = growYLints.flatMap((l) => l.shapeIds)
 			const lines = [
-				'Text overflow: These shapes have text that caused their containers to grow past the size that they were intended to be, potentially breaking out of their container. If you decide to fix: you need to set the height back to what you originally intended after increasing the width.',
+				'Text overflow: These shapes have text that caused their containers to grow taller than intended. The height reported for these shapes already includes the extra growth. To fix overlapping: move any shapes that overlap them downward. To eliminate the overflow: increase the shape width so the text fits without growing taller.',
 				...shapeIds.map((id) => `  - ${id}`),
 			]
 			messages.push(lines.join('\n'))
