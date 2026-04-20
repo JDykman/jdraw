@@ -36,6 +36,12 @@ async function bootstrapAdmin() {
 	console.log(`Admin account created: ${adminUser} (set ADMIN_PASSWORD env var to change)`)
 }
 
+if (process.env.NODE_ENV === 'production') {
+	const required = ['KEY_ENCRYPTION_SECRET', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET']
+	const missing = required.filter((k) => !process.env[k])
+	if (missing.length) throw new Error(`Missing required env vars: ${missing.join(', ')}`)
+}
+
 await bootstrapAdmin()
 
 const app = express()

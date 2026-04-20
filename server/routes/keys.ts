@@ -22,9 +22,18 @@ router.get('/', (req, res) => {
 
 router.put('/', (req, res) => {
 	const { openai, anthropic, google } = req.body as {
-		openai?: string
-		anthropic?: string
-		google?: string
+		openai?: string | null
+		anthropic?: string | null
+		google?: string | null
+	}
+
+	const MAX_KEY_LENGTH = 500
+	const isInvalidKey = (val: string | null | undefined): boolean =>
+		typeof val === 'string' && (val.length > MAX_KEY_LENGTH)
+
+	if (isInvalidKey(openai) || isInvalidKey(anthropic) || isInvalidKey(google)) {
+		res.status(400).json({ error: 'API key too long' })
+		return
 	}
 
 	// Preserve existing keys if field is left blank
@@ -34,9 +43,16 @@ router.put('/', (req, res) => {
 		| { openai_key: string | null; anthropic_key: string | null; google_key: string | null }
 		| undefined
 
-	const newOpenai = openai?.trim() ? encrypt(openai.trim()) : existing?.openai_key ?? null
-	const newAnthropic = anthropic?.trim() ? encrypt(anthropic.trim()) : existing?.anthropic_key ?? null
-	const newGoogle = google?.trim() ? encrypt(google.trim()) : existing?.google_key ?? null
+	// null = explicit delete, undefined/empty = preserve existing, string = update
+	const resolveKey = (val: string | null | undefined, existing: string | null | undefined): string | null => {
+		if (val === null) return null
+		if (val?.trim()) return encrypt(val.trim())
+		return existing ?? null
+	}
+
+	const newOpenai = resolveKey(openai ?? undefined, existing?.openai_key)
+	const newAnthropic = resolveKey(anthropic ?? undefined, existing?.anthropic_key)
+	const newGoogle = resolveKey(google ?? undefined, existing?.google_key)
 
 	db.prepare(`
 		INSERT INTO user_api_keys (user_id, openai_key, anthropic_key, google_key, updated_at)

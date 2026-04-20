@@ -1282,3 +1282,20 @@ button.prompt-tag span {
 	padding: 4px;
 	color: var(--color-text);
 }
+
+.key-clear {
+	background: none;
+	border: 1px solid var(--color-divider);
+	border-radius: 3px;
+	cursor: pointer;
+	font-size: 0.75rem;
+	padding: 2px 6px;
+	color: #e53e3e;
+	align-self: flex-start;
+}
+
+.key-clear-pending {
+	font-size: 0.75rem;
+	color: #e53e3e;
+	font-style: italic;
+}
