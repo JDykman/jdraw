@@ -41,7 +41,7 @@ try {
 "
 
 if podman container exists jdraw 2>/dev/null; then
-  echo "${SCRIPT/DB_PATH_PLACEHOLDER//data/jdraw.db}" | podman exec -i jdraw sh -c 'cat > /tmp/_cu.mjs && node_modules/.bin/tsx /tmp/_cu.mjs; RC=$?; rm -f /tmp/_cu.mjs; exit $RC'
+  echo "${SCRIPT/DB_PATH_PLACEHOLDER//data/jdraw.db}" | podman exec -i jdraw sh -c 'cat > /app/_cu.mjs && node_modules/.bin/tsx /app/_cu.mjs; RC=$?; rm -f /app/_cu.mjs; exit $RC'
 else
   echo "${SCRIPT/DB_PATH_PLACEHOLDER/./jdraw.db}" | node --input-type=module
 fi
