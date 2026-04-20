@@ -99,7 +99,7 @@ function App({ pageId, onBack }: AppProps) {
 	}, [])
 
 	// Build WebSocket URI with auth token
-	const wsUri = useCallback(async () => {
+	const wsUri = useCallback(() => {
 		const token = getToken()
 		const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
 		const host = window.location.host
@@ -108,7 +108,7 @@ function App({ pageId, onBack }: AppProps) {
 
 	const userInfo = useMemo(
 		() => ({ id: user?.id ?? 'anonymous', name: user?.username ?? 'Anonymous' }),
-		[user]
+		[user?.id, user?.username]
 	)
 
 	// Minimal no-upload asset store — images/files stored inline as base64
