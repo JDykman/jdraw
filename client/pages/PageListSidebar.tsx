@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
+import { ApiKeysSettings } from '../components/ApiKeysSettings'
 
 interface Page {
 	id: string
@@ -32,6 +33,8 @@ export function PageListSidebar({ onSelect }: PageListProps) {
 	const [renaming, setRenaming] = useState<string | null>(null)
 	const [renameValue, setRenameValue] = useState('')
 	const renameRef = useRef<HTMLInputElement>(null)
+
+	const [showSettings, setShowSettings] = useState(false)
 
 	// Sharing modal state
 	const [sharingPage, setSharingPage] = useState<Page | null>(null)
@@ -158,6 +161,7 @@ export function PageListSidebar({ onSelect }: PageListProps) {
 			<div className="page-list-header">
 				<span className="page-list-title">jdraw</span>
 				<span className="page-list-user">{user?.username}</span>
+				<button className="page-list-settings" onClick={() => setShowSettings(true)} title="API Keys">⚙</button>
 				<button className="page-list-logout" onClick={logout}>Sign out</button>
 			</div>
 
@@ -216,6 +220,7 @@ export function PageListSidebar({ onSelect }: PageListProps) {
 					</div>
 				</div>
 			)}
+			{showSettings && <ApiKeysSettings onClose={() => setShowSettings(false)} />}
 		</div>
 	)
 }

@@ -1178,3 +1178,107 @@ button.prompt-tag span {
 	font-size: 13px;
 	cursor: pointer;
 }
+
+/* Settings overlay */
+.settings-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1000;
+}
+
+.settings-panel {
+	background: var(--color-panel);
+	border: 1px solid var(--color-divider);
+	border-radius: 8px;
+	padding: 24px;
+	width: 420px;
+	max-width: calc(100vw - 32px);
+}
+
+.settings-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 8px;
+}
+
+.settings-header h2 {
+	margin: 0;
+	font-size: 1rem;
+	font-weight: 600;
+}
+
+.settings-close {
+	background: none;
+	border: none;
+	cursor: pointer;
+	font-size: 1rem;
+	color: var(--color-text);
+	padding: 4px;
+}
+
+.settings-description {
+	font-size: 0.8rem;
+	color: var(--color-text-muted, #888);
+	margin-bottom: 16px;
+}
+
+.settings-form {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.settings-form label {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-size: 0.85rem;
+	font-weight: 500;
+}
+
+.settings-form input {
+	padding: 7px 10px;
+	border: 1px solid var(--color-divider);
+	border-radius: 4px;
+	background: var(--color-background);
+	color: var(--color-text);
+	font-size: 0.85rem;
+}
+
+.key-current {
+	font-size: 0.75rem;
+	color: var(--color-text-muted, #888);
+	font-weight: normal;
+	font-family: monospace;
+}
+
+.settings-error {
+	color: #e53e3e;
+	font-size: 0.8rem;
+	margin: 0;
+}
+
+.settings-success {
+	color: #38a169;
+	font-size: 0.8rem;
+	margin: 0;
+}
+
+.settings-form button[type="submit"] {
+	align-self: flex-end;
+	padding: 7px 20px;
+}
+
+.page-list-settings {
+	background: none;
+	border: none;
+	cursor: pointer;
+	font-size: 1rem;
+	padding: 4px;
+	color: var(--color-text);
+}
