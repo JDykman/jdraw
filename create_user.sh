@@ -19,27 +19,18 @@ else
   IS_ADMIN=0
 fi
 
-# Determine if running against container (production) or local DB (dev)
-if podman container exists jdraw 2>/dev/null; then
-  EXEC="podman exec jdraw node_modules/.bin/tsx"
-  DB_PATH="/data/jdraw.db"
-else
-  EXEC="node"
-  DB_PATH="./jdraw.db"
-fi
-
-$EXEC --input-type=module <<EOF
+SCRIPT="
 import bcrypt from 'bcryptjs';
 import Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
 
-const db = new Database('${DB_PATH}');
+const db = new Database('DB_PATH_PLACEHOLDER');
 const hash = await bcrypt.hash('${PASSWORD}', 12);
 try {
   db.prepare('INSERT INTO users (id, username, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?, ?)').run(
     randomUUID(), '${USERNAME}', hash, ${IS_ADMIN}, Date.now()
   );
-  console.log('User "${USERNAME}" created successfully.');
+  console.log('User created successfully.');
 } catch (e) {
   if (e.message?.includes('UNIQUE')) {
     console.error('Error: Username already exists.');
@@ -47,4 +38,10 @@ try {
   }
   throw e;
 }
-EOF
+"
+
+if podman container exists jdraw 2>/dev/null; then
+  echo "${SCRIPT/DB_PATH_PLACEHOLDER//data/jdraw.db}" | podman exec -i jdraw sh -c 'cat > /tmp/_cu.mjs && node_modules/.bin/tsx /tmp/_cu.mjs; RC=$?; rm -f /tmp/_cu.mjs; exit $RC'
+else
+  echo "${SCRIPT/DB_PATH_PLACEHOLDER/./jdraw.db}" | node --input-type=module
+fi
