@@ -9,6 +9,7 @@ import { db } from './db/db.js'
 import { authMiddleware } from './middleware/auth.js'
 import agentStateRouter from './routes/agentState.js'
 import authRouter from './routes/auth.js'
+import keysRouter from './routes/keys.js'
 import pagesRouter from './routes/pages.js'
 import streamRouter from './routes/stream.js'
 import usersRouter from './routes/users.js'
@@ -45,6 +46,7 @@ app.use('/api/auth', authRouter)
 app.use('/api/users', usersRouter)
 app.use('/api/pages', pagesRouter)
 app.use('/api/pages', agentStateRouter)
+app.use('/api/keys', keysRouter)
 app.use('/api/stream', authMiddleware, streamRouter)
 // Keep /stream path for now (client still uses it; updated in step 4)
 app.use('/stream', authMiddleware, streamRouter)
