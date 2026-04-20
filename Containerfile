@@ -12,7 +12,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Prune dev dependencies
+# Prune dev dependencies (tsx stays — it's now in dependencies)
 RUN npm prune --omit=dev
 
 # --- Stage 2: Runtime ---
@@ -20,8 +20,13 @@ FROM docker.io/library/node:20-alpine
 
 WORKDIR /app
 
+# Client build output
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/dist-server ./dist-server
+# Server + shared TypeScript source (tsx runs it directly)
+COPY --from=builder /app/server ./server
+COPY --from=builder /app/worker ./worker
+COPY --from=builder /app/shared ./shared
+COPY --from=builder /app/tsconfig*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 
@@ -39,4 +44,4 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD wget -qO- http://localhost:3001/ || exit 1
 
-CMD ["node", "dist-server/server/index.js"]
+CMD ["node_modules/.bin/tsx", "server/index.ts"]
