@@ -13,6 +13,7 @@ import { TldrawAgentApp } from './agent/TldrawAgentApp'
 import {
 	TldrawAgentAppContextProvider,
 	TldrawAgentAppProvider,
+	useOptionalTldrawAgentApp,
 } from './agent/TldrawAgentAppProvider'
 import { useAuth } from './auth/AuthContext'
 import { ChatPanel } from './components/ChatPanel'
@@ -53,6 +54,36 @@ const overrides: TLUiOverrides = {
 	},
 }
 
+function HelperButtons() {
+	const app = useOptionalTldrawAgentApp()
+	if (!app) return null
+	return (
+		<TldrawAgentAppContextProvider app={app}>
+			<CustomHelperButtons />
+		</TldrawAgentAppContextProvider>
+	)
+}
+
+function Overlays() {
+	const app = useOptionalTldrawAgentApp()
+	return (
+		<>
+			<TldrawOverlays />
+			{app && (
+				<TldrawAgentAppContextProvider app={app}>
+					<AgentViewportBoundsHighlights />
+					<AllContextHighlights />
+				</TldrawAgentAppContextProvider>
+			)}
+		</>
+	)
+}
+
+const components: TLComponents = {
+	HelperButtons,
+	Overlays,
+}
+
 interface AppProps {
 	pageId: string
 	onBack?(): void
@@ -81,57 +112,37 @@ function App({ pageId, onBack }: AppProps) {
 	)
 
 	// Minimal no-upload asset store — images/files stored inline as base64
-	const assets = useMemo(() => ({
-		upload: async (_asset: unknown, file: File) => {
-			return new Promise<{ src: string }>((resolve) => {
-				const reader = new FileReader()
-				reader.onload = () => resolve({ src: reader.result as string })
-				reader.readAsDataURL(file)
-			})
-		},
-	}), [])
+	const assets = useMemo(
+		() => ({
+			upload: async (_asset: unknown, file: File) => {
+				return new Promise<{ src: string }>((resolve) => {
+					const reader = new FileReader()
+					reader.onload = () => resolve({ src: reader.result as string })
+					reader.readAsDataURL(file)
+				})
+			},
+		}),
+		[]
+	)
 
 	const store = useSync({ uri: wsUri, userInfo, assets })
-
-	const components: TLComponents = useMemo(() => {
-		return {
-			HelperButtons: () =>
-				app && (
-					<TldrawAgentAppContextProvider app={app}>
-						<CustomHelperButtons />
-					</TldrawAgentAppContextProvider>
-				),
-			Overlays: () => (
-				<>
-					<TldrawOverlays />
-					{app && (
-						<TldrawAgentAppContextProvider app={app}>
-							<AgentViewportBoundsHighlights />
-							<AllContextHighlights />
-						</TldrawAgentAppContextProvider>
-					)}
-				</>
-			),
-		}
-	}, [app])
 
 	return (
 		<TldrawUiToastsProvider>
 			<div className={`tldraw-agent-container${sidebarOpen ? ' sidebar-open' : ''}`}>
 				<div className="tldraw-canvas">
-					<Tldraw
-						store={store}
-						tools={tools}
-						overrides={overrides}
-						components={components}
-					>
+					<Tldraw store={store} tools={tools} overrides={overrides} components={components}>
 						<TldrawAgentAppProvider pageId={pageId} onMount={setApp} onUnmount={handleUnmount} />
 					</Tldraw>
 				</div>
 				<ErrorBoundary fallback={ChatPanelFallback}>
 					{app && (
 						<TldrawAgentAppContextProvider app={app}>
-							<ChatPanel open={sidebarOpen} onToggle={() => setSidebarOpen((o) => !o)} onBack={onBack} />
+							<ChatPanel
+								open={sidebarOpen}
+								onToggle={() => setSidebarOpen((o) => !o)}
+								onBack={onBack}
+							/>
 						</TldrawAgentAppContextProvider>
 					)}
 				</ErrorBoundary>

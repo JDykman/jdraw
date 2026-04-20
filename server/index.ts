@@ -60,7 +60,7 @@ app.use('/stream', authMiddleware, streamRouter)
 if (IS_PROD) {
 	const distPath = join(__dirname, '..', 'dist')
 	app.use(express.static(distPath))
-	app.get('/{*path}', (_req, res) => {
+	app.get('*', (_req, res) => {
 		res.sendFile(join(distPath, 'index.html'))
 	})
 }

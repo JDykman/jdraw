@@ -2,6 +2,7 @@ import { createContext, memo, ReactNode, useCallback, useContext, useEffect, use
 import { useEditor, useToasts, useValue } from 'tldraw'
 import { TldrawAgent } from './TldrawAgent'
 import { TldrawAgentApp } from './TldrawAgentApp'
+import { AgentAppAgentsManager } from './managers/AgentAppAgentsManager'
 
 const TldrawAgentAppContext = createContext<TldrawAgentApp | null>(null)
 
@@ -95,6 +96,7 @@ export const TldrawAgentAppProvider = memo(function TldrawAgentAppProvider({
 			instance.persistence.startAutoSave()
 
 			setApp(instance)
+			AgentAppAgentsManager.setApp(editor, instance)
 
 			// Notify parent
 			onMount?.(instance)
@@ -109,6 +111,7 @@ export const TldrawAgentAppProvider = memo(function TldrawAgentAppProvider({
 			cancelled = true
 			instance.dispose()
 			setApp(null)
+			AgentAppAgentsManager.setApp(editor, null)
 			onUnmount?.()
 			delete (window as any).agentApp
 			delete (window as any).agent
@@ -150,6 +153,19 @@ export function TldrawAgentAppContextProvider({
 }
 
 /**
+ * Hook to get the TldrawAgentApp instance from context or from the static atom.
+ * Must be used inside a TldrawAgentAppProvider or TldrawAgentAppContextProvider,
+ * or as a child of <Tldraw> if the app has been initialized.
+ *
+ * @returns The TldrawAgentApp instance or null if not yet initialized.
+ */
+export function useOptionalTldrawAgentApp(): TldrawAgentApp | null {
+	const app = useContext(TldrawAgentAppContext)
+	const editor = useEditor()
+	return app ?? useValue('app', () => AgentAppAgentsManager.getApp(editor), [editor])
+}
+
+/**
  * Hook to get the TldrawAgentApp instance from context.
  * Must be used inside a TldrawAgentAppProvider or TldrawAgentAppContextProvider.
  *
@@ -164,7 +180,7 @@ export function TldrawAgentAppContextProvider({
  * ```
  */
 export function useTldrawAgentApp(): TldrawAgentApp {
-	const app = useContext(TldrawAgentAppContext)
+	const app = useOptionalTldrawAgentApp()
 	if (!app) {
 		throw new Error('useTldrawAgentApp must be used inside a TldrawAgentAppProvider')
 	}

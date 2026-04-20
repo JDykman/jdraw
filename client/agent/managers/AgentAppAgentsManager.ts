@@ -20,6 +20,25 @@ function generateAgentId(): string {
  */
 export class AgentAppAgentsManager extends BaseAgentAppManager {
 	/**
+	 * Static EditorAtom containing the app instance.
+	 */
+	private static $app = new EditorAtom<TldrawAgentApp | null>('app', () => null)
+
+	/**
+	 * Get the app instance for an editor.
+	 */
+	static getApp(editor: Editor): TldrawAgentApp | null {
+		return AgentAppAgentsManager.$app.get(editor)
+	}
+
+	/**
+	 * Set the app instance for an editor.
+	 */
+	static setApp(editor: Editor, app: TldrawAgentApp | null): void {
+		AgentAppAgentsManager.$app.set(editor, app)
+	}
+
+	/**
 	 * Static EditorAtom containing agents.
 	 * This allows tools to access agents without needing the full TldrawAgentApp.
 	 */
