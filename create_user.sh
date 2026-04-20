@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-read -rp "Username (email): " USERNAME
+read -rp "Username: " USERNAME
 
 while true; do
   read -rsp "Password: " PASSWORD; echo
@@ -19,12 +19,21 @@ else
   IS_ADMIN=0
 fi
 
-node --input-type=module <<EOF
+# Determine if running against container (production) or local DB (dev)
+if podman container exists jdraw 2>/dev/null; then
+  EXEC="podman exec jdraw node_modules/.bin/tsx"
+  DB_PATH="/data/jdraw.db"
+else
+  EXEC="node"
+  DB_PATH="./jdraw.db"
+fi
+
+$EXEC --input-type=module <<EOF
 import bcrypt from 'bcryptjs';
 import Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
 
-const db = new Database('./jdraw.db');
+const db = new Database('${DB_PATH}');
 const hash = await bcrypt.hash('${PASSWORD}', 12);
 try {
   db.prepare('INSERT INTO users (id, username, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?, ?)').run(
@@ -32,7 +41,7 @@ try {
   );
   console.log('User "${USERNAME}" created successfully.');
 } catch (e) {
-  if (e.message.includes('UNIQUE')) {
+  if (e.message?.includes('UNIQUE')) {
     console.error('Error: Username already exists.');
     process.exit(1);
   }
