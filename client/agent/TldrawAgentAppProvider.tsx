@@ -153,16 +153,11 @@ export function TldrawAgentAppContextProvider({
 }
 
 /**
- * Hook to get the TldrawAgentApp instance from context or from the static atom.
- * Must be used inside a TldrawAgentAppProvider or TldrawAgentAppContextProvider,
- * or as a child of <Tldraw> if the app has been initialized.
- *
- * @returns The TldrawAgentApp instance or null if not yet initialized.
+ * Hook to get the TldrawAgentApp instance from context.
+ * Returns null if not inside a provider.
  */
-export function useOptionalTldrawAgentApp(): TldrawAgentApp | null {
-	const app = useContext(TldrawAgentAppContext)
-	const editor = useEditor()
-	return app ?? useValue('app', () => AgentAppAgentsManager.getApp(editor), [editor])
+export function useTldrawAgentAppOpt(): TldrawAgentApp | null {
+	return useContext(TldrawAgentAppContext)
 }
 
 /**
@@ -171,20 +166,22 @@ export function useOptionalTldrawAgentApp(): TldrawAgentApp | null {
  *
  * @throws Error if called outside of a provider
  * @returns The TldrawAgentApp instance (guaranteed non-null)
- *
- * @example
- * ```tsx
- * const app = useTldrawAgentApp()
- * // app is guaranteed to exist here
- * const agent = app.agents.getAgent()
- * ```
  */
 export function useTldrawAgentApp(): TldrawAgentApp {
-	const app = useOptionalTldrawAgentApp()
+	const app = useTldrawAgentAppOpt()
 	if (!app) {
 		throw new Error('useTldrawAgentApp must be used inside a TldrawAgentAppProvider')
 	}
 	return app
+}
+
+/**
+ * Hook to get the TldrawAgentApp instance from the editor.
+ * Must be used inside a <Tldraw> component.
+ */
+export function useTldrawAgentAppFromEditor(): TldrawAgentApp | null {
+	const editor = useEditor()
+	return useValue('app', () => AgentAppAgentsManager.getApp(editor), [editor])
 }
 
 /**

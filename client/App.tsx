@@ -13,7 +13,7 @@ import { TldrawAgentApp } from './agent/TldrawAgentApp'
 import {
 	TldrawAgentAppContextProvider,
 	TldrawAgentAppProvider,
-	useOptionalTldrawAgentApp,
+	useTldrawAgentAppFromEditor,
 } from './agent/TldrawAgentAppProvider'
 import { useAuth } from './auth/AuthContext'
 import { ChatPanel } from './components/ChatPanel'
@@ -55,7 +55,7 @@ const overrides: TLUiOverrides = {
 }
 
 function HelperButtons() {
-	const app = useOptionalTldrawAgentApp()
+	const app = useTldrawAgentAppFromEditor()
 	if (!app) return null
 	return (
 		<TldrawAgentAppContextProvider app={app}>
@@ -65,7 +65,7 @@ function HelperButtons() {
 }
 
 function Overlays() {
-	const app = useOptionalTldrawAgentApp()
+	const app = useTldrawAgentAppFromEditor()
 	return (
 		<>
 			<TldrawOverlays />
