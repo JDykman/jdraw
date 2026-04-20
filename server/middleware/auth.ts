@@ -31,9 +31,14 @@ export function signRefreshToken(user: AuthUser): string {
 	return jwt.sign(user, getRefreshSecret(), { expiresIn: '7d' })
 }
 
+function extractUser(payload: unknown): AuthUser {
+	const p = payload as AuthUser
+	return { id: p.id, username: p.username, isAdmin: p.isAdmin }
+}
+
 export function verifyAccessToken(token: string): AuthUser | null {
 	try {
-		return jwt.verify(token, getAccessSecret()) as AuthUser
+		return extractUser(jwt.verify(token, getAccessSecret()))
 	} catch {
 		return null
 	}
@@ -41,7 +46,7 @@ export function verifyAccessToken(token: string): AuthUser | null {
 
 export function verifyRefreshToken(token: string): AuthUser | null {
 	try {
-		return jwt.verify(token, getRefreshSecret()) as AuthUser
+		return extractUser(jwt.verify(token, getRefreshSecret()))
 	} catch {
 		return null
 	}
