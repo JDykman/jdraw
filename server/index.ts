@@ -60,8 +60,13 @@ app.use('/stream', authMiddleware, streamRouter)
 if (IS_PROD) {
 	const distPath = join(__dirname, '..', 'dist')
 	app.use(express.static(distPath))
-	app.get('/:path*', (_req, res) => {
-		res.sendFile(join(distPath, 'index.html'))
+	// Fallback for SPA routing
+	app.use((req, res, next) => {
+		if (req.method === 'GET' && req.accepts('html')) {
+			res.sendFile(join(distPath, 'index.html'))
+		} else {
+			next()
+		}
 	})
 }
 
