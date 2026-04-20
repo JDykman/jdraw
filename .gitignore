@@ -3,3 +3,11 @@ node_modules
 .yarn/
 .dev.vars
 *.dev.vars
+dist/
+dist-server/
+.tsbuild/
+jdraw.db
+*.db-shm
+*.db-wal
+.worktrees/
+docs/

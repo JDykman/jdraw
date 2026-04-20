@@ -10,6 +10,7 @@ import { ContextItem } from '../../shared/types/ContextItem'
 import { PromptPart } from '../../shared/types/PromptPart'
 import { Streaming } from '../../shared/types/Streaming'
 import { TodoItem } from '../../shared/types/TodoItem'
+import { getAuthToken } from '../auth/tokenStore'
 import { AgentHelpers } from '../AgentHelpers'
 import { getModeNode } from '../modes/AgentModeChart'
 import { AgentModeType } from '../modes/AgentModeDefinitions'
@@ -683,11 +684,13 @@ export class TldrawAgent {
 		prompt: BaseAgentPrompt
 		signal: AbortSignal
 	}): AsyncGenerator<Streaming<AgentAction>> {
-		const res = await fetch('/stream', {
+		const token = getAuthToken()
+		const res = await fetch('/api/stream', {
 			method: 'POST',
 			body: JSON.stringify(prompt),
 			headers: {
 				'Content-Type': 'application/json',
+				...(token ? { Authorization: `Bearer ${token}` } : {}),
 			},
 			signal,
 		})

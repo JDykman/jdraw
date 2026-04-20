@@ -7,6 +7,7 @@ const TldrawAgentAppContext = createContext<TldrawAgentApp | null>(null)
 
 export interface TldrawAgentAppProviderProps {
 	children?: ReactNode
+	pageId?: string
 	/**
 	 * Callback fired when the app is created. Use this to pass the app
 	 * to components outside the Tldraw component via TldrawAgentAppContextProvider.
@@ -53,6 +54,7 @@ export interface TldrawAgentAppProviderProps {
  */
 export const TldrawAgentAppProvider = memo(function TldrawAgentAppProvider({
 	children,
+	pageId,
 	onMount,
 	onUnmount,
 }: TldrawAgentAppProviderProps) {
@@ -78,26 +80,33 @@ export const TldrawAgentAppProvider = memo(function TldrawAgentAppProvider({
 	useEffect(() => {
 		const instance = new TldrawAgentApp(editor, { onError: handleError })
 
-		// Load persisted state first (this will create agents from persisted data)
-		instance.persistence.loadState()
+		if (pageId) instance.persistence.configure(pageId)
 
-		// Ensure at least one agent exists (creates one if none were loaded)
-		const defaultAgent = instance.agents.ensureAtLeastOneAgent()
+		let cancelled = false
+		;(async () => {
+			// Load persisted state first (this will create agents from persisted data)
+			await instance.persistence.loadState()
+			if (cancelled) return
 
-		// Start auto-saving (must be after loadState to avoid saving during load)
-		instance.persistence.startAutoSave()
+			// Ensure at least one agent exists (creates one if none were loaded)
+			const defaultAgent = instance.agents.ensureAtLeastOneAgent()
 
-		setApp(instance)
+			// Start auto-saving (must be after loadState to avoid saving during load)
+			instance.persistence.startAutoSave()
 
-		// Notify parent
-		onMount?.(instance)
+			setApp(instance)
 
-		// Expose to window for debugging
-		;(window as any).agentApp = instance
-		;(window as any).agent = defaultAgent
-		;(window as any).editor = editor
+			// Notify parent
+			onMount?.(instance)
+
+			// Expose to window for debugging
+			;(window as any).agentApp = instance
+			;(window as any).agent = defaultAgent
+			;(window as any).editor = editor
+		})()
 
 		return () => {
+			cancelled = true
 			instance.dispose()
 			setApp(null)
 			onUnmount?.()
@@ -105,7 +114,7 @@ export const TldrawAgentAppProvider = memo(function TldrawAgentAppProvider({
 			delete (window as any).agent
 			delete (window as any).editor
 		}
-	}, [editor, handleError, onMount, onUnmount])
+	}, [editor, handleError, onMount, onUnmount, pageId])
 
 	// Don't render children until app exists
 	if (!app) {
