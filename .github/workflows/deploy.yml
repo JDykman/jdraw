@@ -6,7 +6,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner | lower }}/jdraw
+  IMAGE_NAME: jdykman/jdraw
 
 jobs:
   build-and-push:
