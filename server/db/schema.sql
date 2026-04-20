@@ -35,5 +35,13 @@ CREATE TABLE IF NOT EXISTS agent_state (
     PRIMARY KEY (page_id, user_id)
 );
 
+CREATE TABLE IF NOT EXISTS user_api_keys (
+    user_id       TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    openai_key    TEXT,
+    anthropic_key TEXT,
+    google_key    TEXT,
+    updated_at    INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE INDEX IF NOT EXISTS idx_pages_owner  ON pages(owner_id);
 CREATE INDEX IF NOT EXISTS idx_shares_user  ON page_shares(user_id);
