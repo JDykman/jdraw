@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useAuth } from '../auth/AuthContext'
 
 interface KeysState {
@@ -62,7 +63,7 @@ export function ApiKeysSettings({ onClose }: ApiKeysSettingsProps) {
 		}
 	}
 
-	return (
+	return createPortal(
 		<div className="settings-overlay" onClick={onClose}>
 			<div className="settings-panel" onClick={(e) => e.stopPropagation()}>
 				<div className="settings-header">
@@ -152,6 +153,7 @@ export function ApiKeysSettings({ onClose }: ApiKeysSettingsProps) {
 					</button>
 				</form>
 			</div>
-		</div>
+		</div>,
+		document.body
 	)
 }
