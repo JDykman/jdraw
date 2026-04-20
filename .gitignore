@@ -7,3 +7,7 @@ dist/
 dist-server/
 .tsbuild/
 jdraw.db
+*.db-shm
+*.db-wal
+.worktrees/
+docs/
