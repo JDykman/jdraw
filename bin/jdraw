@@ -1,0 +1,51 @@
+#!/bin/bash
+
+# Launch jdraw: start vite dev server and open as a webapp
+
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+DEV_URL="http://localhost:5173"
+IDLE_TIMEOUT=300 # seconds to wait after last tab closes before killing vite
+
+STARTED_VITE=false
+
+# Start vite if not already running
+if ! curl -s "$DEV_URL" > /dev/null 2>&1; then
+	cd "$PROJECT_DIR"
+	npx vite &
+	VITE_PID=$!
+	STARTED_VITE=true
+
+	# Wait for server to be ready
+	until curl -s "$DEV_URL" > /dev/null 2>&1; do
+		sleep 0.5
+	done
+fi
+
+# Launch as webapp using omarchy's approach
+omarchy-launch-webapp "$DEV_URL"
+
+# If we started vite, monitor and shut it down when idle
+if $STARTED_VITE && [ -n "$VITE_PID" ] && kill -0 "$VITE_PID" 2>/dev/null; then
+	(
+		IDLE_COUNT=0
+		CHECK_INTERVAL=30
+
+		while kill -0 "$VITE_PID" 2>/dev/null; do
+			sleep "$CHECK_INTERVAL"
+
+			# Count established connections to vite's port (excludes vite's own LISTEN)
+			CONNECTIONS=$(ss -tn state established "( sport = :5173 )" 2>/dev/null | tail -n +2 | wc -l)
+
+			if [ "$CONNECTIONS" -eq 0 ]; then
+				IDLE_COUNT=$((IDLE_COUNT + CHECK_INTERVAL))
+			else
+				IDLE_COUNT=0
+			fi
+
+			if [ "$IDLE_COUNT" -ge "$IDLE_TIMEOUT" ]; then
+				kill "$VITE_PID" 2>/dev/null
+				break
+			fi
+		done
+	) &
+fi

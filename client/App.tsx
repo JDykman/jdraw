@@ -20,6 +20,7 @@ import { AgentViewportBoundsHighlights } from './components/highlights/AgentView
 import { AllContextHighlights } from './components/highlights/ContextHighlights'
 import { TargetAreaTool } from './tools/TargetAreaTool'
 import { TargetShapeTool } from './tools/TargetShapeTool'
+import { useFileSync } from './useFileSync'
 
 // Customize tldraw's styles to play to the agent's strengths
 DefaultSizeStyle.setDefaultValue('s')
@@ -50,6 +51,11 @@ const overrides: TLUiOverrides = {
 			},
 		}
 	},
+}
+
+function FileSync() {
+	useFileSync()
+	return null
 }
 
 function App() {
@@ -92,6 +98,7 @@ function App() {
 						overrides={overrides}
 						components={components}
 					>
+						<FileSync />
 						<TldrawAgentAppProvider onMount={setApp} onUnmount={handleUnmount} />
 					</Tldraw>
 				</div>

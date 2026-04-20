@@ -6,7 +6,8 @@
 	"scripts": {
 		"build": "vite build",
 		"dev": "vite",
-		"preview": "vite preview"
+		"preview": "vite preview",
+		"postinstall": "patch-package"
 	},
 	"dependencies": {
 		"@ai-sdk/anthropic": "^2.0.2",
@@ -31,6 +32,7 @@
 		"@types/react": "^19.2.7",
 		"@types/react-dom": "^19.2.3",
 		"@vitejs/plugin-react-swc": "^3.10.2",
+		"patch-package": "^8.0.1",
 		"typescript": "^5.8.3",
 		"vite": "^7.0.1"
 	}
