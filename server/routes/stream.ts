@@ -1,9 +1,8 @@
 import { Router } from 'express'
 import { AgentService } from '../../worker/do/AgentService.js'
-import { env } from '../environment.js'
+import { getUserKeys } from './keys.js'
 
 const router = Router()
-const service = new AgentService(env)
 
 router.post('/', async (req, res) => {
 	res.writeHead(200, {
@@ -11,6 +10,20 @@ router.post('/', async (req, res) => {
 		'Cache-Control': 'no-cache, no-transform',
 		Connection: 'keep-alive',
 		'X-Accel-Buffering': 'no',
+	})
+
+	const keys = getUserKeys(req.user!.id)
+
+	if (!keys.openai && !keys.anthropic && !keys.google) {
+		res.write(`data: ${JSON.stringify({ error: 'No API keys configured. Add your API keys in Settings.' })}\n\n`)
+		res.end()
+		return
+	}
+
+	const service = new AgentService({
+		OPENAI_API_KEY: keys.openai,
+		ANTHROPIC_API_KEY: keys.anthropic,
+		GOOGLE_API_KEY: keys.google,
 	})
 
 	try {
