@@ -88,7 +88,7 @@ function toModelMessages(agentMessages: AgentMessage[]): ModelMessage[] {
 					for (let i = 0; i < binary.length; i++) {
 						bytes[i] = binary.charCodeAt(i)
 					}
-					content.push({ type: 'image', image: bytes, mimeType })
+					content.push({ type: 'image', image: bytes, mediaType: mimeType })
 				} else {
 					content.push({ type: 'image', image: imageData })
 				}

@@ -1,7 +1,7 @@
 {
 	"compilerOptions": {
 		"outDir": "./.tsbuild",
-		"types": ["@cloudflare/workers-types", "node"],
+		"types": ["node"],
 		"composite": true,
 		"declaration": true,
 		"declarationMap": true,
@@ -29,7 +29,7 @@
 		"useDefineForClassFields": true,
 		"noImplicitOverride": true
 	},
-	"exclude": ["node_modules"],
-	"include": ["client", "shared", "worker"],
-	"files": ["./vite.config.ts"]
+	"include": ["client", "shared", "worker", "server/environment.ts"],
+	"files": ["./vite.config.ts"],
+	"exclude": ["node_modules"]
 }
