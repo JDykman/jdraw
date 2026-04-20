@@ -19,10 +19,31 @@ else
   IS_ADMIN=0
 fi
 
+SCRIPT="
+import { createRequire } from 'module';
+import { randomUUID } from 'crypto';
+const require = createRequire('/app/package.json');
+const bcrypt = require('bcryptjs');
+const Database = require('better-sqlite3');
+
+const db = new Database('DB_PATH_PLACEHOLDER');
+const hash = await bcrypt.hash('${PASSWORD}', 12);
+try {
+  db.prepare('INSERT INTO users (id, username, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?, ?)').run(
+    randomUUID(), '${USERNAME}', hash, ${IS_ADMIN}, Date.now()
+  );
+  console.log('User created successfully.');
+} catch (e) {
+  if (e.message?.includes('UNIQUE')) {
+    console.error('Error: Username already exists.');
+    process.exit(1);
+  }
+  throw e;
+}
+"
+
 if podman container exists jdraw 2>/dev/null; then
-  podman exec -e USERNAME="$USERNAME" -e PASSWORD="$PASSWORD" -e IS_ADMIN="$IS_ADMIN" \
-    jdraw node_modules/.bin/tsx scripts/create_user.mjs
+  echo "${SCRIPT/DB_PATH_PLACEHOLDER//data/jdraw.db}" | podman exec -i jdraw sh -c 'cat > /tmp/_cu.mjs && node_modules/.bin/tsx /tmp/_cu.mjs; RC=$?; rm -f /tmp/_cu.mjs; exit $RC'
 else
-  USERNAME="$USERNAME" PASSWORD="$PASSWORD" IS_ADMIN="$IS_ADMIN" DB_PATH=./jdraw.db \
-    node --input-type=module < scripts/create_user.mjs
+  echo "${SCRIPT/DB_PATH_PLACEHOLDER/./jdraw.db}" | node --input-type=module
 fi
