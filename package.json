@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "concurrently \"vite\" \"tsx watch server/index.ts\"",
-		"build": "vite build && tsc -p tsconfig.server.json",
+		"build": "vite build && tsc -p tsconfig.server.json && cp server/db/schema.sql dist-server/server/db/schema.sql",
 		"start": "node dist-server/index.js",
 		"preview": "vite preview"
 	},

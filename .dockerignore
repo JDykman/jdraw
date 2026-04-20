@@ -1,0 +1,10 @@
+*.db
+*.db-shm
+*.db-wal
+.env*
+node_modules
+dist/
+dist-server/
+.tsbuild/
+docs/
+.worktrees/
