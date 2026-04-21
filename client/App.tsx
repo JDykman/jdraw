@@ -132,14 +132,6 @@ function App({ pageId, onBack }: AppProps) {
 
 	const store = useSync({ uri: wsUri, userInfo, assets })
 
-	useEffect(() => {
-		console.log('[App] store changed!', store)
-	}, [store])
-
-	useEffect(() => {
-		console.log('[App] wsUri changed!', wsUri)
-	}, [wsUri])
-
 	const components: TLComponents = useMemo(
 		() => ({
 			HelperButtons,

@@ -1,0 +1,26 @@
+diff --git a/node_modules/@tldraw/editor/dist-cjs/lib/license/LicenseProvider.js b/node_modules/@tldraw/editor/dist-cjs/lib/license/LicenseProvider.js
+index f411fec..9d632da 100644
+--- a/node_modules/@tldraw/editor/dist-cjs/lib/license/LicenseProvider.js
++++ b/node_modules/@tldraw/editor/dist-cjs/lib/license/LicenseProvider.js
+@@ -32,7 +32,7 @@ const import_meta = {};
+ const LicenseContext = (0, import_react.createContext)({});
+ const useLicenseContext = () => (0, import_react.useContext)(LicenseContext);
+ function shouldHideEditorAfterDelay(licenseState) {
+-  return licenseState === "expired" || licenseState === "unlicensed-production";
++  return false;
+ }
+ const LICENSE_TIMEOUT = 5e3;
+ function LicenseProvider({
+diff --git a/node_modules/@tldraw/editor/dist-esm/lib/license/LicenseProvider.mjs b/node_modules/@tldraw/editor/dist-esm/lib/license/LicenseProvider.mjs
+index 6b50326..b5cda32 100644
+--- a/node_modules/@tldraw/editor/dist-esm/lib/license/LicenseProvider.mjs
++++ b/node_modules/@tldraw/editor/dist-esm/lib/license/LicenseProvider.mjs
+@@ -5,7 +5,7 @@ import { LicenseManager } from "./LicenseManager.mjs";
+ const LicenseContext = createContext({});
+ const useLicenseContext = () => useContext(LicenseContext);
+ function shouldHideEditorAfterDelay(licenseState) {
+-  return licenseState === "expired" || licenseState === "unlicensed-production";
++  return false;
+ }
+ const LICENSE_TIMEOUT = 5e3;
+ function LicenseProvider({

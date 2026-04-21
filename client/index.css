@@ -8,12 +8,6 @@
 
 body {
 	font-family: 'Inter', sans-serif;
-	background-color: #eee;
-}
-
-#root {
-	min-height: 100vh;
-	background-color: #ddd;
 }
 
 .tldraw-agent-container {
