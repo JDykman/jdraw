@@ -9,10 +9,6 @@ export default defineConfig(() => {
 			zodLocalePlugin(fileURLToPath(new URL('./scripts/zod-locales-shim.js', import.meta.url))),
 			react(),
 		],
-		define: {
-			'licenseState === "expired" || licenseState === "unlicensed-production"': 'false',
-			'shouldHideEditorAfterDelay(licenseState)': 'false',
-		},
 		server: {
 			proxy: {
 				'/api': 'http://localhost:3001',
