@@ -39,6 +39,9 @@ setInterval(() => {
 	} else {
 		// Log a heartbeat to know the script is alive
 		console.log('[Heartbeat] Root innerHTML length:', root.innerHTML.length)
+		if (root.innerHTML.length < 2000) {
+			console.log('[Heartbeat DOM]', root.innerHTML)
+		}
 	}
 }, 2000)
 
