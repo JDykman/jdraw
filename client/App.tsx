@@ -7,7 +7,6 @@ import {
 	TldrawOverlays,
 	TldrawUiToastsProvider,
 	TLUiOverrides,
-	useEditor,
 } from 'tldraw'
 import { useSync } from '@tldraw/sync'
 import { TldrawAgentApp } from './agent/TldrawAgentApp'
@@ -65,18 +64,6 @@ function HelperButtons() {
 	)
 }
 
-function LicenseHack() {
-	const editor = useEditor()
-	useEffect(() => {
-		const anyEditor = editor as any
-		const lm = anyEditor.licenseManager || anyEditor._licenseManager
-		if (lm) {
-			lm.state.set('licensed')
-		}
-	}, [editor])
-	return null
-}
-
 function LoadingScreen() {
 	return (
 		<div className="app-loading">
@@ -90,7 +77,6 @@ function Overlays() {
 	return (
 		<>
 			<TldrawOverlays />
-			<LicenseHack />
 			{app && (
 				<TldrawAgentAppContextProvider app={app}>
 					<AgentViewportBoundsHighlights />
@@ -152,10 +138,7 @@ function App({ pageId, onBack }: AppProps) {
 			Overlays,
 			LoadingScreen,
 			InFrontOfTheCanvas: () => (
-				<>
-					<LicenseHack />
-					<TldrawAgentAppProvider pageId={pageId} onMount={setApp} onUnmount={handleUnmount} />
-				</>
+				<TldrawAgentAppProvider pageId={pageId} onMount={setApp} onUnmount={handleUnmount} />
 			),
 		}),
 		[pageId, handleUnmount]
