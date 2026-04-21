@@ -32,6 +32,7 @@ window.addEventListener('unhandledrejection', (e) => reportError('unhandledrejec
 
 const root = document.getElementById('root') as HTMLElement
 
+let hasLoadedCanvas = false
 // Periodically check if the root is empty
 setInterval(() => {
 	if (root.innerHTML.length === 0) {
@@ -39,7 +40,10 @@ setInterval(() => {
 	} else {
 		// Log a heartbeat to know the script is alive
 		console.log('[Heartbeat] Root innerHTML length:', root.innerHTML.length)
-		if (root.innerHTML.length > 0 && root.innerHTML.length < 2000 && !document.getElementById('debug-dump')) {
+		if (root.innerHTML.length > 10000) {
+			hasLoadedCanvas = true
+		}
+		if (hasLoadedCanvas && root.innerHTML.length < 1000 && !document.getElementById('debug-dump')) {
 			console.log('[Heartbeat DOM]', root.innerHTML)
 			const dump = document.createElement('div')
 			dump.id = 'debug-dump'
