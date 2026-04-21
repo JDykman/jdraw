@@ -44,7 +44,13 @@ export function getOrCreateRoom(pageId: string): TLSocketRoom<TLRecord> {
 	let entry = rooms.get(pageId)
 	if (!entry) {
 		const initialSnapshot = loadSnapshot(pageId)
-		const room = new TLSocketRoom({ schema, initialSnapshot })
+		let room: TLSocketRoom<TLRecord>
+		try {
+			room = new TLSocketRoom({ schema, initialSnapshot })
+		} catch (e: any) {
+			console.error(`Failed to load snapshot for room ${pageId}, starting fresh:`, e.message)
+			room = new TLSocketRoom({ schema, initialSnapshot: undefined })
+		}
 		entry = { room, connections: 0, persistTimer: null }
 		rooms.set(pageId, entry)
 	}
