@@ -54,8 +54,6 @@ app.use('/api/pages', pagesRouter)
 app.use('/api/pages', agentStateRouter)
 app.use('/api/keys', keysRouter)
 app.use('/api/stream', authMiddleware, streamRouter)
-// Keep /stream path for now (client still uses it; updated in step 4)
-app.use('/stream', authMiddleware, streamRouter)
 
 if (IS_PROD) {
 	const distPath = join(__dirname, '..', 'dist')

@@ -107,7 +107,6 @@ function App({ pageId, onBack }: AppProps) {
 		const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
 		const host = window.location.host
 		const uri = `${proto}://${host}/ws/pages/${pageId}${token ? `?token=${encodeURIComponent(token)}` : ''}`
-		console.log('[wsUri]', uri.replace(token ?? 'REDACTED', '***'))
 		return uri
 	}, [pageId, getToken])
 
