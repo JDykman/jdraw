@@ -39,8 +39,22 @@ setInterval(() => {
 	} else {
 		// Log a heartbeat to know the script is alive
 		console.log('[Heartbeat] Root innerHTML length:', root.innerHTML.length)
-		if (root.innerHTML.length < 2000) {
+		if (root.innerHTML.length > 0 && root.innerHTML.length < 2000 && !document.getElementById('debug-dump')) {
 			console.log('[Heartbeat DOM]', root.innerHTML)
+			const dump = document.createElement('div')
+			dump.id = 'debug-dump'
+			dump.style.position = 'fixed'
+			dump.style.top = '0'
+			dump.style.left = '0'
+			dump.style.width = '100vw'
+			dump.style.height = '100vh'
+			dump.style.background = 'blue'
+			dump.style.color = 'white'
+			dump.style.zIndex = '999999'
+			dump.style.padding = '20px'
+			dump.style.overflow = 'auto'
+			dump.innerText = "DOM DROPPED TO " + root.innerHTML.length + " CHARS:\n\n" + root.innerHTML
+			document.body.appendChild(dump)
 		}
 	}
 }, 2000)
