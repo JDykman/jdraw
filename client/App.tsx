@@ -87,12 +87,6 @@ function Overlays() {
 	)
 }
 
-const components: TLComponents = {
-	HelperButtons,
-	Overlays,
-	LoadingScreen,
-}
-
 interface AppProps {
 	pageId: string
 	onBack?(): void
@@ -146,6 +140,18 @@ function App({ pageId, onBack }: AppProps) {
 		console.log('[App] wsUri changed!', wsUri)
 	}, [wsUri])
 
+	const components: TLComponents = useMemo(
+		() => ({
+			HelperButtons,
+			Overlays,
+			LoadingScreen,
+			InFrontOfTheCanvas: () => (
+				<TldrawAgentAppProvider pageId={pageId} onMount={setApp} onUnmount={handleUnmount} />
+			),
+		}),
+		[pageId, handleUnmount]
+	)
+
 	return (
 		<TldrawUiToastsProvider>
 			<div
@@ -154,9 +160,7 @@ function App({ pageId, onBack }: AppProps) {
 			>
 				<div className="tldraw-canvas" style={{ background: 'white' }}>
 					<ErrorBoundary fallback={(error) => <div className="app-loading">Canvas Crash: {error.message}</div>}>
-						<Tldraw store={store} tools={tools} overrides={overrides} components={components}>
-							<TldrawAgentAppProvider pageId={pageId} onMount={setApp} onUnmount={handleUnmount} />
-						</Tldraw>
+						<Tldraw store={store} tools={tools} overrides={overrides} components={components} />
 					</ErrorBoundary>
 				</div>
 				<ErrorBoundary fallback={ChatPanelFallback}>
