@@ -9,18 +9,6 @@ export default defineConfig(() => {
 			zodLocalePlugin(fileURLToPath(new URL('./scripts/zod-locales-shim.js', import.meta.url))),
 			react(),
 		],
-		resolve: {
-			alias: [
-				{
-					find: /.*\/license\/LicenseProvider\.mjs$/,
-					replacement: fileURLToPath(new URL('./client/LicenseProviderPatch.tsx', import.meta.url)),
-				},
-				{
-					find: /.*\/license\/LicenseProvider\.js$/,
-					replacement: fileURLToPath(new URL('./client/LicenseProviderPatch.tsx', import.meta.url)),
-				},
-			],
-		},
 		server: {
 			proxy: {
 				'/api': 'http://localhost:3001',

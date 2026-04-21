@@ -1,4 +1,4 @@
-import { TLSocketRoom } from '@tldraw/sync'
+import { TLSocketRoom } from '@tldraw/sync-core'
 import { createTLSchema } from '@tldraw/tlschema'
 import { createRequire } from 'module'
 import { existsSync } from 'fs'
