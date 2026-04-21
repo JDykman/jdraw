@@ -150,6 +150,11 @@ function App({ pageId, onBack }: AppProps) {
 				style={{ background: '#f0f0f0' }}
 			>
 				<div className="tldraw-canvas" style={{ background: 'white' }}>
+					{onBack && (
+						<button className="back-to-pages-button" onClick={onBack} title="Back to pages">
+							← Pages
+						</button>
+					)}
 					<ErrorBoundary fallback={(error) => <div className="app-loading">Canvas Crash: {error.message}</div>}>
 						<Tldraw store={store} tools={tools} overrides={overrides} components={components} />
 					</ErrorBoundary>
@@ -160,7 +165,6 @@ function App({ pageId, onBack }: AppProps) {
 							<ChatPanel
 								open={sidebarOpen}
 								onToggle={() => setSidebarOpen((o) => !o)}
-								onBack={onBack}
 							/>
 						</TldrawAgentAppContextProvider>
 					)}

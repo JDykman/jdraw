@@ -5,7 +5,7 @@ import { ChatHistory } from './chat-history/ChatHistory'
 import { ChatInput } from './ChatInput'
 import { TodoList } from './TodoList'
 
-export function ChatPanel({ open, onToggle, onBack }: { open: boolean; onToggle: () => void; onBack?(): void }) {
+export function ChatPanel({ open, onToggle }: { open: boolean; onToggle: () => void }) {
 	const agent = useAgent()
 	const isDark = useValue(
 		'isDark',
@@ -62,11 +62,6 @@ export function ChatPanel({ open, onToggle, onBack }: { open: boolean; onToggle:
 				{open ? '›' : '‹'}
 			</button>
 			<div className="chat-header">
-				{onBack && (
-					<button className="back-to-pages-button" onClick={onBack} title="Back to pages">
-						←
-					</button>
-				)}
 				<button className="new-chat-button" onClick={handleNewChat}>
 					+
 				</button>
