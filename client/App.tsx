@@ -64,6 +64,14 @@ function HelperButtons() {
 	)
 }
 
+function LoadingScreen() {
+	return (
+		<div className="app-loading">
+			<span>Connecting to canvas…</span>
+		</div>
+	)
+}
+
 function Overlays() {
 	const app = useTldrawAgentAppFromEditor()
 	return (
@@ -82,6 +90,7 @@ function Overlays() {
 const components: TLComponents = {
 	HelperButtons,
 	Overlays,
+	LoadingScreen,
 }
 
 interface AppProps {
@@ -103,7 +112,9 @@ function App({ pageId, onBack }: AppProps) {
 		const token = getToken()
 		const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
 		const host = window.location.host
-		return `${proto}://${host}/ws/pages/${pageId}${token ? `?token=${encodeURIComponent(token)}` : ''}`
+		const uri = `${proto}://${host}/ws/pages/${pageId}${token ? `?token=${encodeURIComponent(token)}` : ''}`
+		console.log('[wsUri]', uri.replace(token ?? 'REDACTED', '***'))
+		return uri
 	}, [pageId, getToken])
 
 	const userInfo = useMemo(
@@ -129,11 +140,16 @@ function App({ pageId, onBack }: AppProps) {
 
 	return (
 		<TldrawUiToastsProvider>
-			<div className={`tldraw-agent-container${sidebarOpen ? ' sidebar-open' : ''}`}>
-				<div className="tldraw-canvas">
-					<Tldraw store={store} tools={tools} overrides={overrides} components={components}>
-						<TldrawAgentAppProvider pageId={pageId} onMount={setApp} onUnmount={handleUnmount} />
-					</Tldraw>
+			<div
+				className={`tldraw-agent-container${sidebarOpen ? ' sidebar-open' : ''}`}
+				style={{ background: '#f0f0f0' }}
+			>
+				<div className="tldraw-canvas" style={{ background: 'white' }}>
+					<ErrorBoundary fallback={(error) => <div className="app-loading">Canvas Crash: {error.message}</div>}>
+						<Tldraw store={store} tools={tools} overrides={overrides} components={components}>
+							<TldrawAgentAppProvider pageId={pageId} onMount={setApp} onUnmount={handleUnmount} />
+						</Tldraw>
+					</ErrorBoundary>
 				</div>
 				<ErrorBoundary fallback={ChatPanelFallback}>
 					{app && (
