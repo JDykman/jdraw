@@ -1,5 +1,6 @@
 import { Editor, EditorAtom, uniqueId } from 'tldraw'
 import { TldrawAgent } from '../TldrawAgent'
+import type { TldrawAgentApp } from '../TldrawAgentApp'
 import { BaseAgentAppManager } from './BaseAgentAppManager'
 
 /**

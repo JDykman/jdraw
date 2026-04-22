@@ -5,14 +5,14 @@ import { LoginPage } from './auth/LoginPage'
 import { PageListSidebar } from './pages/PageListSidebar'
 
 class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
-	state = { error: null as Error | null }
+	override state = { error: null as Error | null }
 	static getDerivedStateFromError(error: Error) {
 		return { error }
 	}
-	componentDidCatch(error: Error, info: React.ErrorInfo) {
+	override componentDidCatch(error: Error, info: React.ErrorInfo) {
 		console.error('RootErrorBoundary caught:', error, info)
 	}
-	render() {
+	override render() {
 		if (this.state.error) {
 			return (
 				<div style={{ padding: 24, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>

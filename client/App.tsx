@@ -186,7 +186,7 @@ function App({ pageId, onBack }: AppProps) {
 				style={{ background: '#f0f0f0' }}
 			>
 				<div className="tldraw-canvas" style={{ background: 'white' }}>
-					<ErrorBoundary fallback={(error) => <div className="app-loading">Canvas Crash: {error.message}</div>}>
+					<ErrorBoundary fallback={(err: any) => <div className="app-loading">Canvas Crash: {err.message}</div>}>
 						<Tldraw
 							store={store}
 							tools={tools}
