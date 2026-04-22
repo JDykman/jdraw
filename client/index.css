@@ -150,7 +150,7 @@ body {
 	border: 1px solid var(--tl-color-text-3);
 	border-radius: 4px;
 	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-	z-index: 1000;
+	z-index: 10001;
 	margin-top: 4px;
 	max-height: 300px;
 	overflow-y: auto;
@@ -239,7 +239,7 @@ body {
 	margin: 0px 8px 8px 8px;
 	padding: 0px;
 	background-color: var(--tl-color-panel);
-	z-index: 999999;
+	z-index: 1001;
 }
 
 .chat-input form {
@@ -486,7 +486,7 @@ body {
 	top: -6px;
 	padding: 8px;
 	margin: -8px;
-	z-index: 9999;
+	z-index: 1000;
 	background-color: var(--tl-color-panel);
 }
 
