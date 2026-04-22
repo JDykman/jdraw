@@ -7,16 +7,7 @@ import { TodoList } from './TodoList'
 
 export function ChatPanel({ open, onToggle }: { open: boolean; onToggle: () => void }) {
 	const agent = useAgent()
-	const isDark = useValue(
-		'isDark',
-		() => {
-			const { colorScheme } = agent.editor.user.getUserPreferences()
-			if (colorScheme === 'dark') return true
-			if (colorScheme === 'light') return false
-			return window.matchMedia('(prefers-color-scheme: dark)').matches
-		},
-		[agent.editor]
-	)
+	const isDark = useValue('isDark', () => agent.editor.user.getIsDarkMode(), [agent.editor])
 	const inputRef = useRef<HTMLTextAreaElement>(null)
 
 	const handleSubmit = useCallback<FormEventHandler<HTMLFormElement>>(
