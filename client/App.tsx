@@ -7,6 +7,8 @@ import {
 	TldrawOverlays,
 	TldrawUiToastsProvider,
 	TLUiOverrides,
+	useEditor,
+	useValue,
 } from 'tldraw'
 import { useSync } from '@tldraw/sync'
 import { TldrawAgentApp } from './agent/TldrawAgentApp'
@@ -87,6 +89,33 @@ function Overlays() {
 	)
 }
 
+function BackToPagesButton({ onBack, editor }: { onBack: () => void; editor: any }) {
+	const isMenuOpen = useValue('isMenuOpen', () => editor.getInstanceState().isMenuOpen, [editor])
+
+	return (
+		<button
+			className={`back-to-pages-button${isMenuOpen ? ' back-to-pages-button--menu-open' : ''}`}
+			onClick={onBack}
+			title="Back to pages"
+		>
+			<svg
+				width="14"
+				height="14"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="3"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				style={{ display: 'block' }}
+			>
+				<path d="M19 12H5M12 19l-7-7 7-7" />
+			</svg>
+			<span>Pages</span>
+		</button>
+	)
+}
+
 interface AppProps {
 	pageId: string
 	onBack?(): void
@@ -94,8 +123,15 @@ interface AppProps {
 
 function App({ pageId, onBack }: AppProps) {
 	const [app, setApp] = useState<TldrawAgentApp | null>(null)
-	const [sidebarOpen, setSidebarOpen] = useState(true)
+	const [sidebarOpen, setSidebarOpen] = useState(() => {
+		const saved = localStorage.getItem('jdraw:sidebarOpen')
+		return saved !== null ? saved === 'true' : true
+	})
 	const { user, getToken } = useAuth()
+
+	useEffect(() => {
+		localStorage.setItem('jdraw:sidebarOpen', String(sidebarOpen))
+	}, [sidebarOpen])
 
 	const handleUnmount = useCallback(() => {
 		setApp(null)
@@ -150,11 +186,6 @@ function App({ pageId, onBack }: AppProps) {
 				style={{ background: '#f0f0f0' }}
 			>
 				<div className="tldraw-canvas" style={{ background: 'white' }}>
-					{onBack && (
-						<button className="back-to-pages-button" onClick={onBack} title="Back to pages">
-							← Pages
-						</button>
-					)}
 					<ErrorBoundary fallback={(error) => <div className="app-loading">Canvas Crash: {error.message}</div>}>
 						<Tldraw
 							store={store}
@@ -164,6 +195,7 @@ function App({ pageId, onBack }: AppProps) {
 							licenseKey="tldraw-2026-07-31/WyJtWlp6QllqViIsWyIqIl0sMTYsIjIwMjYtMDctMzEiXQ.eW0xXe5WMdLoT2xVWXEwyFu5d270JOYUqwxFkSyBANgaYTfkYZYMO6YAKJEqRDk0kz8M3khoa+5qPWgcZ8nNiA"
 						/>
 					</ErrorBoundary>
+					{onBack && app && <BackToPagesButton onBack={onBack} editor={app.editor} />}
 				</div>
 				<ErrorBoundary fallback={ChatPanelFallback}>
 					{app && (
