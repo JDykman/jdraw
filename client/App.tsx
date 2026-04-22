@@ -156,7 +156,13 @@ function App({ pageId, onBack }: AppProps) {
 						</button>
 					)}
 					<ErrorBoundary fallback={(error) => <div className="app-loading">Canvas Crash: {error.message}</div>}>
-						<Tldraw store={store} tools={tools} overrides={overrides} components={components} />
+						<Tldraw
+							store={store}
+							tools={tools}
+							overrides={overrides}
+							components={components}
+							licenseKey="tldraw-2026-07-31/WyJtWlp6QllqViIsWyIqIl0sMTYsIjIwMjYtMDctMzEiXQ.eW0xXe5WMdLoT2xVWXEwyFu5d270JOYUqwxFkSyBANgaYTfkYZYMO6YAKJEqRDk0kz8M3khoa+5qPWgcZ8nNiA"
+						/>
 					</ErrorBoundary>
 				</div>
 				<ErrorBoundary fallback={ChatPanelFallback}>
