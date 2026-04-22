@@ -5,6 +5,7 @@ import { BaseAgentAppManager } from './BaseAgentAppManager'
 
 export interface PersistedAppState {
 	agents: Record<string, PersistedAgentState>
+	activeAgentId?: string | null
 }
 
 export class AgentAppPersistenceManager extends BaseAgentAppManager {
@@ -33,6 +34,7 @@ export class AgentAppPersistenceManager extends BaseAgentAppManager {
 				},
 				{} as Record<string, PersistedAgentState>
 			),
+			activeAgentId: this.app.agents.getActiveAgentId(),
 		}
 	}
 
@@ -52,6 +54,9 @@ export class AgentAppPersistenceManager extends BaseAgentAppManager {
 				const agentState = appState.agents[agent.id]
 				if (agentState) agent.loadState(agentState)
 			})
+			if (appState.activeAgentId) {
+				this.app.agents.setActiveAgentId(appState.activeAgentId)
+			}
 		} catch (e) {
 			console.error('Failed to load app state:', e)
 		} finally {
@@ -80,6 +85,13 @@ export class AgentAppPersistenceManager extends BaseAgentAppManager {
 
 			if (!this.isLoadingState) this.saveState()
 		})
+
+		// Watch for active agent changes
+		const activeAgentCleanup = react('active agent', () => {
+			this.app.agents.getActiveAgentId()
+			if (!this.isLoadingState) this.saveState()
+		})
+		this.agentWatcherCleanupFns.set('__activeAgentId', activeAgentCleanup)
 	}
 
 	private createAgentStateWatcher(agent: TldrawAgent): () => void {

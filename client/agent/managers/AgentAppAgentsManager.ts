@@ -45,6 +45,11 @@ export class AgentAppAgentsManager extends BaseAgentAppManager {
 	private static $agents = new EditorAtom<TldrawAgent[]>('agents', () => [])
 
 	/**
+	 * Static EditorAtom containing the active agent ID.
+	 */
+	private static $activeAgentId = new EditorAtom<string | null>('activeAgentId', () => null)
+
+	/**
 	 * Get all agents for an editor.
 	 * Use this static method from tools that only have access to the editor.
 	 */
@@ -53,14 +58,33 @@ export class AgentAppAgentsManager extends BaseAgentAppManager {
 	}
 
 	/**
+	 * Get the active agent ID for an editor.
+	 */
+	static getActiveAgentId(editor: Editor): string | null {
+		return AgentAppAgentsManager.$activeAgentId.get(editor)
+	}
+
+	/**
+	 * Set the active agent ID for an editor.
+	 */
+	static setActiveAgentId(editor: Editor, id: string | null): void {
+		AgentAppAgentsManager.$activeAgentId.set(editor, id)
+	}
+
+	/**
 	 * Get an agent by ID for an editor.
-	 * If no ID is provided, returns the first agent.
+	 * If no ID is provided, returns the active agent, or the first agent.
 	 * Use this static method from tools that only have access to the editor.
 	 */
 	static getAgent(editor: Editor, id?: string): TldrawAgent | undefined {
 		const agents = AgentAppAgentsManager.$agents.get(editor)
 		if (id) {
 			return agents.find((agent) => agent.id === id)
+		}
+		const activeId = AgentAppAgentsManager.$activeAgentId.get(editor)
+		if (activeId) {
+			const activeAgent = agents.find((agent) => agent.id === activeId)
+			if (activeAgent) return activeAgent
 		}
 		return agents[0]
 	}
@@ -73,13 +97,32 @@ export class AgentAppAgentsManager extends BaseAgentAppManager {
 	}
 
 	/**
+	 * Get the active agent ID.
+	 */
+	getActiveAgentId(): string | null {
+		return AgentAppAgentsManager.$activeAgentId.get(this.app.editor)
+	}
+
+	/**
+	 * Set the active agent ID.
+	 */
+	setActiveAgentId(id: string | null): void {
+		AgentAppAgentsManager.$activeAgentId.set(this.app.editor, id)
+	}
+
+	/**
 	 * Get an agent by ID.
-	 * If no ID is provided, returns the first agent.
+	 * If no ID is provided, returns the active agent, or the first agent.
 	 */
 	getAgent(id?: string): TldrawAgent | undefined {
 		const agents = AgentAppAgentsManager.$agents.get(this.app.editor)
 		if (id) {
 			return agents.find((agent) => agent.id === id)
+		}
+		const activeId = AgentAppAgentsManager.$activeAgentId.get(this.app.editor)
+		if (activeId) {
+			const activeAgent = agents.find((agent) => agent.id === activeId)
+			if (activeAgent) return activeAgent
 		}
 		return agents[0]
 	}
@@ -117,9 +160,15 @@ export class AgentAppAgentsManager extends BaseAgentAppManager {
 	ensureAtLeastOneAgent(): TldrawAgent {
 		const existingAgent = this.getAgent()
 		if (existingAgent) {
+			// If we have an agent but no active agent ID, set it
+			if (!this.getActiveAgentId()) {
+				this.setActiveAgentId(existingAgent.id)
+			}
 			return existingAgent
 		}
-		return this.createAgent(generateAgentId())
+		const newAgent = this.createAgent(generateAgentId())
+		this.setActiveAgentId(newAgent.id)
+		return newAgent
 	}
 
 	/**
@@ -142,6 +191,12 @@ export class AgentAppAgentsManager extends BaseAgentAppManager {
 		AgentAppAgentsManager.$agents.update(this.app.editor, (agents) =>
 			agents.filter((a) => a.id !== id)
 		)
+
+		// If the active agent was deleted, switch to another one
+		if (this.getActiveAgentId() === id) {
+			const remainingAgents = this.getAgents()
+			this.setActiveAgentId(remainingAgents.length > 0 ? remainingAgents[0].id : null)
+		}
 
 		return true
 	}

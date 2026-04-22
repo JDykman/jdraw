@@ -202,7 +202,8 @@ export function useTldrawAgentAppFromEditor(): TldrawAgentApp | null {
  */
 export function useAgent(): TldrawAgent {
 	const app = useTldrawAgentApp()
-	const agent = useValue('agent', () => app.agents.getAgent(), [app])
+	const activeAgentId = useValue('activeAgentId', () => app.agents.getActiveAgentId(), [app])
+	const agent = useValue('agent', () => app.agents.getAgent(activeAgentId || undefined), [app, activeAgentId])
 	if (!agent) {
 		throw new Error('No agent found. Make sure an agent has been created.')
 	}

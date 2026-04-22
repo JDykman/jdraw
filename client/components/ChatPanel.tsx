@@ -1,12 +1,15 @@
-import { useValue } from '@tldraw/editor'
+import { uniqueId, useValue } from '@tldraw/editor'
 import { FormEventHandler, useCallback, useRef } from 'react'
-import { useAgent } from '../agent/TldrawAgentAppProvider'
+import { useAgent, useAgents, useTldrawAgentApp } from '../agent/TldrawAgentAppProvider'
 import { ChatHistory } from './chat-history/ChatHistory'
 import { ChatInput } from './ChatInput'
+import { ChatSessionsMenu } from './ChatSessionsMenu'
 import { TodoList } from './TodoList'
 
 export function ChatPanel({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+	const app = useTldrawAgentApp()
 	const agent = useAgent()
+	const agents = useAgents()
 	const isDark = useValue('isDark', () => agent.editor.user.getIsDarkMode(), [agent.editor])
 	const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -40,8 +43,9 @@ export function ChatPanel({ open, onToggle }: { open: boolean; onToggle: () => v
 	)
 
 	const handleNewChat = useCallback(() => {
-		agent.reset()
-	}, [agent])
+		const newAgent = app.agents.createAgent(uniqueId())
+		app.agents.setActiveAgentId(newAgent.id)
+	}, [app])
 
 	return (
 		<div className={`chat-panel ${isDark ? 'tl-theme__dark' : 'tl-theme__light'}${open ? '' : ' chat-panel--collapsed'}`}>
@@ -53,7 +57,8 @@ export function ChatPanel({ open, onToggle }: { open: boolean; onToggle: () => v
 				{open ? '›' : '‹'}
 			</button>
 			<div className="chat-header">
-				<button className="new-chat-button" onClick={handleNewChat}>
+				<ChatSessionsMenu app={app} agents={agents} activeAgent={agent} />
+				<button className="new-chat-button" onClick={handleNewChat} title="New chat">
 					+
 				</button>
 			</div>
