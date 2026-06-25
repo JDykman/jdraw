@@ -127,7 +127,7 @@ function App({ pageId, onBack }: AppProps) {
 		const saved = localStorage.getItem('jdraw:sidebarOpen')
 		return saved !== null ? saved === 'true' : true
 	})
-	const { user, getToken } = useAuth()
+	const { user, getToken, refreshSession } = useAuth()
 
 	useEffect(() => {
 		localStorage.setItem('jdraw:sidebarOpen', String(sidebarOpen))
@@ -137,14 +137,14 @@ function App({ pageId, onBack }: AppProps) {
 		setApp(null)
 	}, [])
 
-	// Build WebSocket URI with auth token
-	const wsUri = useCallback(() => {
-		const token = getToken()
+	// Build WebSocket URI with a freshly refreshed access token for reconnect attempts.
+	const wsUri = useCallback(async () => {
+		const token = (await refreshSession()) ?? getToken()
 		const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
 		const host = window.location.host
 		const uri = `${proto}://${host}/ws/pages/${pageId}${token ? `?token=${encodeURIComponent(token)}` : ''}`
 		return uri
-	}, [pageId, getToken])
+	}, [pageId, getToken, refreshSession])
 
 	const userInfo = useMemo(
 		() => ({ id: user?.id ?? 'anonymous', name: user?.username ?? 'Anonymous' }),

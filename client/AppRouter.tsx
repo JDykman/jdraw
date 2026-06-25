@@ -1,8 +1,12 @@
-import { Component, ReactNode, useState } from 'react'
+import { Component, ReactNode, useCallback, useEffect, useState } from 'react'
 import App from './App'
 import { useAuth } from './auth/AuthContext'
 import { LoginPage } from './auth/LoginPage'
 import { PageListSidebar } from './pages/PageListSidebar'
+
+function getCurrentPageStorageKey(userId: string) {
+	return `jdraw:currentPageId:${userId}`
+}
 
 class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
 	override state = { error: null as Error | null }
@@ -30,6 +34,28 @@ class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
 export function AppRouter() {
 	const { user, loading } = useAuth()
 	const [currentPageId, setCurrentPageId] = useState<string | null>(null)
+	const [restoredForUserId, setRestoredForUserId] = useState<string | null>(null)
+
+	useEffect(() => {
+		if (!user) {
+			setCurrentPageId(null)
+			setRestoredForUserId(null)
+			return
+		}
+
+		setCurrentPageId(localStorage.getItem(getCurrentPageStorageKey(user.id)))
+		setRestoredForUserId(user.id)
+	}, [user])
+
+	const handleSelectPage = useCallback((pageId: string) => {
+		if (user) localStorage.setItem(getCurrentPageStorageKey(user.id), pageId)
+		setCurrentPageId(pageId)
+	}, [user])
+
+	const handleBackToPages = useCallback(() => {
+		if (user) localStorage.removeItem(getCurrentPageStorageKey(user.id))
+		setCurrentPageId(null)
+	}, [user])
 
 	if (loading) {
 		return (
@@ -43,13 +69,21 @@ export function AppRouter() {
 		return <LoginPage />
 	}
 
+	if (restoredForUserId !== user.id) {
+		return (
+			<div className="app-loading">
+				<span>Loading…</span>
+			</div>
+		)
+	}
+
 	if (!currentPageId) {
-		return <PageListSidebar onSelect={setCurrentPageId} />
+		return <PageListSidebar onSelect={handleSelectPage} />
 	}
 
 	return (
 		<RootErrorBoundary>
-			<App pageId={currentPageId} onBack={() => setCurrentPageId(null)} />
+			<App pageId={currentPageId} onBack={handleBackToPages} />
 		</RootErrorBoundary>
 	)
 }
