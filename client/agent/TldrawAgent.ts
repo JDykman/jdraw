@@ -659,6 +659,20 @@ export class TldrawAgent {
 				if (e === 'Cancelled by user' || (e instanceof Error && e.name === 'AbortError')) {
 					return
 				}
+				// Show the failure in the chat panel so the user isn't left with a
+				// prompt that silently never gets a response
+				const message = e instanceof Error ? e.message : String(e)
+				this.chat.push({
+					type: 'action',
+					action: {
+						_type: 'message',
+						text: `⚠️ Something went wrong: ${message}`,
+						complete: true,
+						time: 0,
+					},
+					diff: { added: {}, updated: {}, removed: {} },
+					acceptance: 'accepted',
+				})
 				this.onError(e)
 			}
 		})()
@@ -694,6 +708,19 @@ export class TldrawAgent {
 			},
 			signal,
 		})
+
+		if (!res.ok) {
+			// Non-OK responses (e.g. 401 expired session, 413 prompt too large) are
+			// not SSE streams, so surface them as errors instead of parsing nothing
+			let message = `Request failed with status ${res.status}`
+			try {
+				const data = JSON.parse(await res.text())
+				if (typeof data.error === 'string') message = data.error
+			} catch {
+				// Body wasn't JSON, keep the status message
+			}
+			throw new Error(message)
+		}
 
 		if (!res.body) {
 			throw Error('No body in response')
