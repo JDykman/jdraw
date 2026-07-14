@@ -127,9 +127,11 @@ export class AgentService {
 				onAbort() {
 					console.warn('Stream actions aborted')
 				},
-				onError: (e) => {
-					console.error('Stream text error:', e)
-					throw e
+				onError: ({ error }) => {
+					console.error('Stream text error:', error)
+					// Rethrow the underlying error (not the { error } wrapper) so the
+					// route handler can send a meaningful message to the client
+					throw error instanceof Error ? error : new Error(String(error))
 				},
 			})
 

@@ -31,10 +31,20 @@ router.post('/', async (req, res) => {
 			res.write(`data: ${JSON.stringify(change)}\n\n`)
 		}
 	} catch (err: unknown) {
-		const message = err instanceof Error ? err.message : String(err)
-		res.write(`data: ${JSON.stringify({ error: message })}\n\n`)
+		res.write(`data: ${JSON.stringify({ error: getErrorMessage(err) })}\n\n`)
 	}
 	res.end()
 })
+
+/** Extract a human-readable message from an unknown error, unwrapping { error } wrappers. */
+function getErrorMessage(err: unknown): string {
+	if (err instanceof Error) return err.message
+	if (err && typeof err === 'object') {
+		const { error, message } = err as { error?: unknown; message?: unknown }
+		if (error !== undefined && error !== err) return getErrorMessage(error)
+		if (typeof message === 'string') return message
+	}
+	return String(err)
+}
 
 export default router
