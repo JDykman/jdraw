@@ -192,7 +192,7 @@ function App({ pageId, onBack }: AppProps) {
 							tools={tools}
 							overrides={overrides}
 							components={components}
-							licenseKey="tldraw-2026-07-31/WyJtWlp6QllqViIsWyIqIl0sMTYsIjIwMjYtMDctMzEiXQ.eW0xXe5WMdLoT2xVWXEwyFu5d270JOYUqwxFkSyBANgaYTfkYZYMO6YAKJEqRDk0kz8M3khoa+5qPWgcZ8nNiA"
+							licenseKey="tldraw-2031-04-28/WyJHVWxTbGFYNyIsWyIqLmpkcmF3Lm1iamFrZS5jb20iXSw5LCIyMDMxLTA0LTI4Il0.d0WjSqelMluLq8iDFR2dAYd7Ft39qxDQ4d+135Rskj2FdG+g/E11xsBQ+9vyyO0BwWnBa6FD6YwrGuReBKEVtA"
 						/>
 					</ErrorBoundary>
 					{onBack && app && <BackToPagesButton onBack={onBack} editor={app.editor} />}
