@@ -1,0 +1,5 @@
+export { TableShapeUtil } from './TableShapeUtil'
+export { TableShapeTool } from './TableShapeTool'
+export { TableToolbar, runTableOp, getSelectedTable } from './TableToolbar'
+export { TableContextMenu } from './TableContextMenu'
+export { TABLE_ICON_URL } from './tableIcon'
