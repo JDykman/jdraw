@@ -1406,3 +1406,23 @@ button.prompt-tag span {
 	color: #e53e3e;
 	font-style: italic;
 }
+
+/* Table shape floating toolbar */
+.table-toolbar {
+	display: flex;
+	gap: 2px;
+	padding: 2px;
+	background: var(--tl-color-panel);
+	border-radius: var(--tl-radius-3);
+	box-shadow: var(--tl-shadow-2);
+	z-index: var(--tl-layer-menus);
+}
+.table-toolbar .tlui-button {
+	height: 32px;
+	padding: 0 8px;
+	font-size: 12px;
+}
+.table-toolbar .tlui-button[data-active='true'] {
+	background: var(--tl-color-selected-contrast);
+	color: var(--tl-color-selected);
+}

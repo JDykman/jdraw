@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
 	DefaultSizeStyle,
+	DefaultToolbar,
+	DefaultToolbarContent,
 	ErrorBoundary,
 	TLComponents,
 	Tldraw,
 	TldrawOverlays,
+	TldrawUiMenuToolItem,
 	TldrawUiToastsProvider,
 	TLUiOverrides,
 	useEditor,
+	useIsToolSelected,
+	useTools,
 	useValue,
 } from 'tldraw'
 import { useSync } from '@tldraw/sync'
@@ -25,15 +30,32 @@ import { AgentViewportBoundsHighlights } from './components/highlights/AgentView
 import { AllContextHighlights } from './components/highlights/ContextHighlights'
 import { TargetAreaTool } from './tools/TargetAreaTool'
 import { TargetShapeTool } from './tools/TargetShapeTool'
+import {
+	TABLE_ICON_URL,
+	TableContextMenu,
+	TableShapeTool,
+	TableShapeUtil,
+	TableToolbar,
+} from './shapes/table'
 
 // Customize tldraw's styles to play to the agent's strengths
 DefaultSizeStyle.setDefaultValue('s')
 
-const tools = [TargetShapeTool, TargetAreaTool]
+const tools = [TargetShapeTool, TargetAreaTool, TableShapeTool]
+const shapeUtils = [TableShapeUtil]
+const assetUrls = { icons: { 'tool-table': TABLE_ICON_URL } }
 const overrides: TLUiOverrides = {
 	tools: (editor, tools) => {
 		return {
 			...tools,
+			table: {
+				id: 'table',
+				label: 'Table',
+				icon: 'tool-table',
+				onSelect() {
+					editor.setCurrentTool('table')
+				},
+			},
 			'target-area': {
 				id: 'target-area',
 				label: 'Pick Area',
@@ -54,6 +76,17 @@ const overrides: TLUiOverrides = {
 			},
 		}
 	},
+}
+
+function Toolbar() {
+	const tools = useTools()
+	const isTableSelected = useIsToolSelected(tools['table'])
+	return (
+		<DefaultToolbar>
+			<DefaultToolbarContent />
+			<TldrawUiMenuToolItem toolId="table" isSelected={isTableSelected} />
+		</DefaultToolbar>
+	)
 }
 
 function HelperButtons() {
@@ -165,15 +198,20 @@ function App({ pageId, onBack }: AppProps) {
 		[]
 	)
 
-	const store = useSync({ uri: wsUri, userInfo, assets })
+	const store = useSync({ uri: wsUri, userInfo, assets, shapeUtils })
 
 	const components: TLComponents = useMemo(
 		() => ({
 			HelperButtons,
 			Overlays,
 			LoadingScreen,
+			Toolbar,
+			ContextMenu: TableContextMenu,
 			InFrontOfTheCanvas: () => (
-				<TldrawAgentAppProvider pageId={pageId} onMount={setApp} onUnmount={handleUnmount} />
+				<>
+					<TldrawAgentAppProvider pageId={pageId} onMount={setApp} onUnmount={handleUnmount} />
+					<TableToolbar />
+				</>
 			),
 		}),
 		[pageId, handleUnmount]
@@ -189,6 +227,8 @@ function App({ pageId, onBack }: AppProps) {
 					<ErrorBoundary fallback={(err: any) => <div className="app-loading">Canvas Crash: {err.message}</div>}>
 						<Tldraw
 							store={store}
+							shapeUtils={shapeUtils}
+							assetUrls={assetUrls}
 							tools={tools}
 							overrides={overrides}
 							components={components}

@@ -26,6 +26,7 @@
 		"shared/models.ts",
 		"shared/format",
 		"shared/schema",
+		"shared/table",
 		"shared/types"
 	],
 	"exclude": ["node_modules", "client"]

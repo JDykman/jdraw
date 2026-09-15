@@ -12,6 +12,9 @@ import {
 	TldrawUiContextProvider,
 	TLShape,
 } from 'tldraw'
+import { TableShapeUtil } from '../../shapes/table/TableShapeUtil'
+
+const viewerShapeUtils = [...defaultShapeUtils, TableShapeUtil]
 
 export function TldrawViewer({
 	shapes,
@@ -69,7 +72,7 @@ export function TldrawViewer({
 					components={components ?? {}}
 					inferDarkMode={false}
 					onMount={setEditor}
-					shapeUtils={defaultShapeUtils}
+					shapeUtils={viewerShapeUtils}
 					bindingUtils={defaultBindingUtils}
 					tools={tools}
 					options={defaultOptions}

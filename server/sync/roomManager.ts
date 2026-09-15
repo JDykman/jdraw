@@ -1,6 +1,7 @@
 import { TLSocketRoom } from '@tldraw/sync-core'
 import { TLRecord } from '@tldraw/tlschema'
-import { createTLSchema } from '@tldraw/tlschema'
+import { createTLSchema, defaultShapeSchemas } from '@tldraw/tlschema'
+import { tableShapeSchema } from '../../shared/table/tableShapeProps.js'
 import { db } from '../db/db.js'
 
 interface ActiveRoom {
@@ -11,7 +12,10 @@ interface ActiveRoom {
 }
 
 const rooms = new Map<string, ActiveRoom>()
-const schema = createTLSchema()
+// Must include every custom shape the client registers, or sync rejects those records.
+const schema = createTLSchema({
+	shapes: { ...defaultShapeSchemas, table: tableShapeSchema },
+})
 
 const ROOM_EVICTION_DELAY_MS = 30_000
 const CHANGE_PERSIST_DELAY_MS = 1_000
