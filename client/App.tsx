@@ -4,14 +4,18 @@ import {
 	DefaultToolbar,
 	DefaultToolbarContent,
 	ErrorBoundary,
+	getUserPreferences,
+	setUserPreferences,
 	TLComponents,
 	Tldraw,
 	TldrawOverlays,
 	TldrawUiMenuToolItem,
 	TldrawUiToastsProvider,
 	TLUiOverrides,
+	TLUserPreferences,
 	defaultShapeUtils,
 	useEditor,
+	useTldrawUser,
 	useIsToolSelected,
 	useTools,
 	useValue,
@@ -182,9 +186,39 @@ function App({ pageId, onBack }: AppProps) {
 		return uri
 	}, [pageId, getToken, refreshSession])
 
+	const accountId = user?.id ?? 'anonymous'
+	const accountName = user?.username ?? 'Anonymous'
+
+	// The editor's own user identity MUST share an id with the presence we publish via
+	// useSync: editor.getCollaborators() filters out presences whose userId === editor.user.getId().
+	// Without this, tldraw uses a random localStorage id and your own presence (second tab,
+	// reconnect echo) shows up as another collaborator.
+	const [prefs, setPrefs] = useState<TLUserPreferences>(() => ({
+		...getUserPreferences(),
+		id: accountId,
+		name: accountName,
+	}))
+	useEffect(() => {
+		setPrefs((p) =>
+			p.id === accountId && p.name === accountName ? p : { ...p, id: accountId, name: accountName }
+		)
+	}, [accountId, accountName])
+	// Stable identity: a new callback here would produce a new TLUser every render, and
+	// TldrawEditor recreates the whole Editor whenever the `user` prop changes identity.
+	const persistPrefs = useCallback(
+		(next: TLUserPreferences) => {
+			// Keep identity pinned to the account; persist the rest (color, snap mode, etc.).
+			const pinned = { ...next, id: accountId, name: accountName }
+			setPrefs(pinned)
+			setUserPreferences(pinned)
+		},
+		[accountId, accountName]
+	)
+	const tldrawUser = useTldrawUser({ userPreferences: prefs, setUserPreferences: persistPrefs })
+
 	const userInfo = useMemo(
-		() => ({ id: user?.id ?? 'anonymous', name: user?.username ?? 'Anonymous' }),
-		[user?.id, user?.username]
+		() => ({ id: accountId, name: accountName, color: prefs.color ?? undefined }),
+		[accountId, accountName, prefs.color]
 	)
 
 	// Minimal no-upload asset store — images/files stored inline as base64
@@ -230,6 +264,7 @@ function App({ pageId, onBack }: AppProps) {
 					<ErrorBoundary fallback={(err: any) => <div className="app-loading">Canvas Crash: {err.message}</div>}>
 						<Tldraw
 							store={store}
+							user={tldrawUser}
 							shapeUtils={shapeUtils}
 							assetUrls={assetUrls}
 							tools={tools}
