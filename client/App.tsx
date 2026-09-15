@@ -10,6 +10,7 @@ import {
 	TldrawUiMenuToolItem,
 	TldrawUiToastsProvider,
 	TLUiOverrides,
+	defaultShapeUtils,
 	useEditor,
 	useIsToolSelected,
 	useTools,
@@ -42,7 +43,9 @@ import {
 DefaultSizeStyle.setDefaultValue('s')
 
 const tools = [TargetShapeTool, TargetAreaTool, TableShapeTool]
-const shapeUtils = [TableShapeUtil]
+// useSync builds its schema from these utils and does NOT add the defaults itself,
+// so the defaults must be included or the schema is missing the built-in shapes.
+const shapeUtils = [...defaultShapeUtils, TableShapeUtil]
 const assetUrls = { icons: { 'tool-table': TABLE_ICON_URL } }
 const overrides: TLUiOverrides = {
 	tools: (editor, tools) => {
