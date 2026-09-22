@@ -41,6 +41,7 @@ import {
 	TableShapeTool,
 	TableShapeUtil,
 	TableToolbar,
+	registerTablePasteHandler,
 } from './shapes/table'
 
 // Customize tldraw's styles to play to the agent's strengths
@@ -193,11 +194,16 @@ function App({ pageId, onBack }: AppProps) {
 	// useSync: editor.getCollaborators() filters out presences whose userId === editor.user.getId().
 	// Without this, tldraw uses a random localStorage id and your own presence (second tab,
 	// reconnect echo) shows up as another collaborator.
-	const [prefs, setPrefs] = useState<TLUserPreferences>(() => ({
-		...getUserPreferences(),
-		id: accountId,
-		name: accountName,
-	}))
+	const [prefs, setPrefs] = useState<TLUserPreferences>(() => {
+		const saved = getUserPreferences()
+		return {
+			...saved,
+			id: accountId,
+			name: accountName,
+			// Snap mode on by default so arrow endpoints snap to table row/column points.
+			isSnapMode: saved.isSnapMode ?? true,
+		}
+	})
 	useEffect(() => {
 		setPrefs((p) =>
 			p.id === accountId && p.name === accountName ? p : { ...p, id: accountId, name: accountName }
@@ -265,6 +271,7 @@ function App({ pageId, onBack }: AppProps) {
 						<Tldraw
 							store={store}
 							user={tldrawUser}
+							onMount={registerTablePasteHandler}
 							shapeUtils={shapeUtils}
 							assetUrls={assetUrls}
 							tools={tools}

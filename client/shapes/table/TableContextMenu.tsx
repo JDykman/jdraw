@@ -7,7 +7,7 @@ import {
 	useEditor,
 	useValue,
 } from 'tldraw'
-import { getSelectedTable, runTableOp } from './TableToolbar'
+import { copyTableAs, getSelectedTable, runTableOp } from './TableToolbar'
 
 export function TableContextMenu(props: TLUiContextMenuProps) {
 	const editor = useEditor()
@@ -25,6 +25,17 @@ export function TableContextMenu(props: TLUiContextMenuProps) {
 						label={table.props.headerRow ? 'Remove header row' : 'Make first row header'}
 						onSelect={() => runTableOp(editor, 'header-toggle')}
 					/>
+					<TldrawUiMenuItem
+						id="table-title"
+						label={table.props.showTitle ? 'Remove title' : 'Add title'}
+						onSelect={() => runTableOp(editor, 'title-toggle')}
+					/>
+				</TldrawUiMenuGroup>
+			)}
+			{table && (
+				<TldrawUiMenuGroup id="table-export">
+					<TldrawUiMenuItem id="table-copy-md" label="Copy as Markdown" onSelect={() => copyTableAs(editor, 'markdown')} />
+					<TldrawUiMenuItem id="table-copy-csv" label="Copy as CSV" onSelect={() => copyTableAs(editor, 'csv')} />
 				</TldrawUiMenuGroup>
 			)}
 			<DefaultContextMenuContent />

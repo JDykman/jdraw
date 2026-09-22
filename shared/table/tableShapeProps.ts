@@ -1,4 +1,5 @@
 import {
+	createShapePropsMigrationIds,
 	createShapePropsMigrationSequence,
 	DefaultColorStyle,
 	DefaultFillStyle,
@@ -25,6 +26,9 @@ export const tableShapeProps = {
 	/** cells[row][col] plain text */
 	cells: T.arrayOf(T.arrayOf(T.string)),
 	headerRow: T.boolean,
+	/** Caption drawn in a band above the grid when showTitle is true. */
+	title: T.string,
+	showTitle: T.boolean,
 	color: DefaultColorStyle,
 	fill: DefaultFillStyle,
 	size: DefaultSizeStyle,
@@ -42,9 +46,25 @@ declare module '@tldraw/tlschema' {
 	}
 }
 
-// Bump this + add a migration whenever props change shape.
+// Add an id + migration whenever props change shape. Both client and server pick this up.
+export const tableShapeVersions = createShapePropsMigrationIds('table', {
+	AddTitle: 1,
+})
+
 export const tableShapeMigrations = createShapePropsMigrationSequence({
-	sequence: [],
+	sequence: [
+		{
+			id: tableShapeVersions.AddTitle,
+			up: (props) => {
+				props.title = ''
+				props.showTitle = false
+			},
+			down: (props) => {
+				delete props.title
+				delete props.showTitle
+			},
+		},
+	],
 })
 
 export const tableShapeSchema = {
@@ -56,3 +76,4 @@ export const TABLE_MIN_COL_WIDTH = 24
 export const TABLE_MIN_ROW_HEIGHT = 20
 export const TABLE_DEFAULT_COL_WIDTH = 120
 export const TABLE_DEFAULT_ROW_HEIGHT = 40
+export const TABLE_TITLE_HEIGHT = 36

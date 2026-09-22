@@ -1,7 +1,7 @@
 import { Editor, TldrawUiButton, track, useEditor } from 'tldraw'
 import { TLTableShape } from '../../../shared/table/tableShapeProps'
 import { activeTableCell } from './tableEditing'
-import { deleteCol, deleteRow, insertCol, insertRow } from './tableOps'
+import { deleteCol, deleteRow, insertCol, insertRow, toCsv, toMarkdown } from './tableOps'
 
 /** The single selected table shape, or null. */
 export function getSelectedTable(editor: Editor): TLTableShape | null {
@@ -9,7 +9,7 @@ export function getSelectedTable(editor: Editor): TLTableShape | null {
 	return shape && editor.isShapeOfType<TLTableShape>(shape, 'table') ? shape : null
 }
 
-type TableOp = 'row-add' | 'row-del' | 'col-add' | 'col-del' | 'header-toggle'
+type TableOp = 'row-add' | 'row-del' | 'col-add' | 'col-del' | 'header-toggle' | 'title-toggle'
 
 /**
  * Apply a structural op to the selected table. Inserts happen after the active
@@ -50,6 +50,11 @@ export function runTableOp(editor: Editor, op: TableOp) {
 		case 'header-toggle':
 			props = { ...props, headerRow: !props.headerRow }
 			break
+		case 'title-toggle':
+			props = { ...props, showTitle: !props.showTitle }
+			if (props.showTitle && active) nextActive = { ...active, row: -1, col: 0 }
+			else if (!props.showTitle && active?.row === -1) nextActive = { ...active, row: 0 }
+			break
 	}
 
 	editor.markHistoryStoppingPoint(`table:${op}`)
@@ -63,7 +68,19 @@ const BUTTONS: { op: TableOp; label: string; title: string }[] = [
 	{ op: 'col-add', label: '+ Col', title: 'Insert column right' },
 	{ op: 'col-del', label: '− Col', title: 'Delete column' },
 	{ op: 'header-toggle', label: 'Header', title: 'Toggle header row' },
+	{ op: 'title-toggle', label: 'Title', title: 'Toggle table title' },
 ]
+
+export async function copyTableAs(editor: Editor, format: 'markdown' | 'csv') {
+	const shape = getSelectedTable(editor)
+	if (!shape) return
+	const text = format === 'markdown' ? toMarkdown(shape.props) : toCsv(shape.props)
+	try {
+		await navigator.clipboard.writeText(text)
+	} catch (e) {
+		console.error('Clipboard write failed', e)
+	}
+}
 
 /** Floating toolbar shown above a selected table. Mount via components.InFrontOfTheCanvas. */
 export const TableToolbar = track(function TableToolbar() {
@@ -94,7 +111,9 @@ export const TableToolbar = track(function TableToolbar() {
 					key={b.op}
 					type="normal"
 					title={b.title}
-					data-active={b.op === 'header-toggle' ? shape.props.headerRow : undefined}
+					data-active={
+						b.op === 'header-toggle' ? shape.props.headerRow : b.op === 'title-toggle' ? shape.props.showTitle : undefined
+					}
 					onClick={() => runTableOp(editor, b.op)}
 				>
 					{b.label}
