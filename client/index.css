@@ -1426,3 +1426,13 @@ button.prompt-tag span {
 	background: var(--tl-color-selected-contrast);
 	color: var(--tl-color-selected);
 }
+
+/* Table divider drag strips: highlight on hover */
+.table-divider {
+	background: transparent;
+	transition: background 80ms;
+}
+.table-divider:hover {
+	background: var(--tl-color-selected);
+	opacity: 0.35;
+}

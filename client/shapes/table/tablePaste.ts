@@ -37,3 +37,11 @@ export function registerTablePasteHandler(editor: Editor) {
 		editor.select(id)
 	})
 }
+
+import { registerTableArrowSnapping } from './tableArrowSnap'
+
+/** Everything the table shape needs wired at editor mount. Pass to <Tldraw onMount>. */
+export function setupTableShape(editor: Editor) {
+	registerTablePasteHandler(editor)
+	return registerTableArrowSnapping(editor)
+}

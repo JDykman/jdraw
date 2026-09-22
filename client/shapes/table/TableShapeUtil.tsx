@@ -4,7 +4,6 @@ import {
 	getDefaultColorTheme,
 	getPointerInfo,
 	HTMLContainer,
-	IndexKey,
 	LABEL_FONT_SIZES,
 	Rectangle2d,
 	resizeBox,
@@ -12,8 +11,6 @@ import {
 	STROKE_SIZES,
 	SvgExportContext,
 	TLDefaultColorTheme,
-	TLHandle,
-	TLHandleDragInfo,
 	TLResizeInfo,
 	TLShapeId,
 	useDefaultColorTheme,
@@ -120,94 +117,6 @@ export class TableShapeUtil extends ShapeUtil<TLTableShape> {
 			minHeight: titleHeight(init) + init.rowHeights.length * TABLE_MIN_ROW_HEIGHT,
 		})
 		return { x: next.x, y: next.y, props: fitTableTo(init, next.props.w, next.props.h) }
-	}
-
-	// ---- Handles: one per interior column/row boundary -------------------
-
-	override getHandles(shape: TLTableShape): TLHandle[] {
-		const { colWidths, rowHeights } = shape.props
-		const th = titleHeight(shape.props)
-		const cx = cumulative(colWidths)
-		const cy = cumulative(rowHeights)
-		const handles: TLHandle[] = []
-		for (let i = 1; i < colWidths.length; i++) {
-			handles.push({
-				id: `col-${i}`,
-				label: `Column ${i} divider`,
-				type: 'vertex',
-				index: `a${i}` as IndexKey,
-				x: cx[i],
-				y: th + rowHeights[0] / 2,
-			})
-		}
-		for (let i = 1; i < rowHeights.length; i++) {
-			handles.push({
-				id: `row-${i}`,
-				label: `Row ${i} divider`,
-				type: 'vertex',
-				index: `b${i}` as IndexKey,
-				x: colWidths[0] / 2,
-				y: th + cy[i],
-			})
-		}
-		return handles
-	}
-
-	/**
-	 * Snap points for arrow endpoints: midpoint of every row on the left/right edges and of
-	 * every column on the top/bottom edges, so arrows can target a specific row/column.
-	 */
-	override getHandleSnapGeometry(shape: TLTableShape) {
-		const { w, h, colWidths, rowHeights } = shape.props
-		const th = titleHeight(shape.props)
-		const cx = cumulative(colWidths)
-		const cy = cumulative(rowHeights)
-		const points: { x: number; y: number }[] = []
-		rowHeights.forEach((rh, i) => {
-			const y = th + cy[i] + rh / 2
-			points.push({ x: 0, y }, { x: w, y })
-		})
-		colWidths.forEach((cw, i) => {
-			const x = cx[i] + cw / 2
-			points.push({ x, y: 0 }, { x, y: h })
-		})
-		if (th > 0) points.push({ x: 0, y: th / 2 }, { x: w, y: th / 2 })
-		return { outline: this.getGeometry(shape), points }
-	}
-
-	override onHandleDrag(shape: TLTableShape, { handle }: TLHandleDragInfo<TLTableShape>) {
-		const m = /^(col|row)-(\d+)$/.exec(handle.id)
-		if (!m) return
-		const idx = Number(m[2]) - 1
-		if (m[1] === 'col') {
-			const cx = cumulative(shape.props.colWidths)
-			const colWidths = [...shape.props.colWidths]
-			colWidths[idx] = Math.max(TABLE_MIN_COL_WIDTH, handle.x - cx[idx])
-			return { id: shape.id, type: shape.type, props: normalizeTable({ ...shape.props, colWidths }) }
-		} else {
-			const cy = cumulative(shape.props.rowHeights)
-			const rowHeights = [...shape.props.rowHeights]
-			rowHeights[idx] = Math.max(TABLE_MIN_ROW_HEIGHT, handle.y - titleHeight(shape.props) - cy[idx])
-			return { id: shape.id, type: shape.type, props: normalizeTable({ ...shape.props, rowHeights }) }
-		}
-	}
-
-	/** Double-click a column divider: auto-fit the column to its left to its widest content. */
-	override onDoubleClickHandle(shape: TLTableShape, handle: TLHandle) {
-		const m = /^col-(\d+)$/.exec(handle.id)
-		if (!m) return
-		const col = Number(m[1]) - 1
-		const s = getStyle(shape.props, getDefaultColorTheme({ isDarkMode: false }))
-		let widest = 0
-		shape.props.cells.forEach((row, r) => {
-			const bold = shape.props.headerRow && r === 0
-			for (const line of (row[col] ?? '').split('\n')) {
-				widest = Math.max(widest, measureText(line, s.fontFamily, s.fontSize, bold))
-			}
-		})
-		const colWidths = [...shape.props.colWidths]
-		colWidths[col] = Math.max(TABLE_MIN_COL_WIDTH, Math.ceil(widest + CELL_PADDING * 2 + 2))
-		return { id: shape.id, type: shape.type, props: normalizeTable({ ...shape.props, colWidths }) }
 	}
 
 	// ---- Editing ----------------------------------------------------------
@@ -329,6 +238,104 @@ function measureText(text: string, fontFamily: string, fontSize: number, bold: b
 	return measureCanvas.measureText(text).width
 }
 
+/** Width of the column to fit its widest content. */
+export function autoFitColumn(shape: TLTableShape, col: number): TLTableShapeProps {
+	const s = getStyle(shape.props, getDefaultColorTheme({ isDarkMode: false }))
+	let widest = 0
+	shape.props.cells.forEach((row, r) => {
+		const bold = shape.props.headerRow && r === 0
+		for (const line of (row[col] ?? '').split('\n')) {
+			widest = Math.max(widest, measureText(line, s.fontFamily, s.fontSize, bold))
+		}
+	})
+	const colWidths = [...shape.props.colWidths]
+	colWidths[col] = Math.max(TABLE_MIN_COL_WIDTH, Math.ceil(widest + CELL_PADDING * 2 + 2))
+	return normalizeTable({ ...shape.props, colWidths })
+}
+
+/**
+ * Full-length drag strips over every interior divider. Rendered only while the table is the
+ * sole selection. Dragging a column divider resizes the column to its left (table grows/shrinks);
+ * double-click auto-fits it. Same for rows.
+ */
+function DividerStrips({ shape }: { shape: TLTableShape }) {
+	const editor = useEditor()
+	const zoom = useValue('zoom', () => editor.getZoomLevel(), [editor])
+	const { w, h, colWidths, rowHeights } = shape.props
+	const th = titleHeight(shape.props)
+	const cx = cumulative(colWidths)
+	const cy = cumulative(rowHeights).map((v) => v + th)
+	const hit = Math.max(6, 10 / zoom)
+
+	const startDrag = (e: React.PointerEvent, kind: 'col' | 'row', idx: number) => {
+		if (e.button !== 0) return
+		e.stopPropagation()
+		e.preventDefault()
+		const el = e.currentTarget as HTMLElement
+		el.setPointerCapture(e.pointerId)
+		editor.markHistoryStoppingPoint('table divider')
+		const onMove = (ev: PointerEvent) => {
+			const cur = editor.getShape<TLTableShape>(shape.id)
+			if (!cur) return
+			const p = editor.getPointInShapeSpace(cur, editor.screenToPage({ x: ev.clientX, y: ev.clientY }))
+			if (kind === 'col') {
+				const ccx = cumulative(cur.props.colWidths)
+				const colWidths = [...cur.props.colWidths]
+				colWidths[idx] = Math.max(TABLE_MIN_COL_WIDTH, p.x - ccx[idx])
+				editor.updateShape({ id: cur.id, type: 'table', props: normalizeTable({ ...cur.props, colWidths }) })
+			} else {
+				const ccy = cumulative(cur.props.rowHeights)
+				const rowHeights = [...cur.props.rowHeights]
+				rowHeights[idx] = Math.max(TABLE_MIN_ROW_HEIGHT, p.y - titleHeight(cur.props) - ccy[idx])
+				editor.updateShape({ id: cur.id, type: 'table', props: normalizeTable({ ...cur.props, rowHeights }) })
+			}
+		}
+		const onUp = (ev: PointerEvent) => {
+			el.removeEventListener('pointermove', onMove)
+			el.removeEventListener('pointerup', onUp)
+			el.removeEventListener('pointercancel', onUp)
+			try {
+				el.releasePointerCapture(ev.pointerId)
+			} catch {
+				/* already released */
+			}
+		}
+		el.addEventListener('pointermove', onMove)
+		el.addEventListener('pointerup', onUp)
+		el.addEventListener('pointercancel', onUp)
+	}
+
+	const stripBase: React.CSSProperties = { position: 'absolute', pointerEvents: 'all', touchAction: 'none' }
+
+	return (
+		<>
+			{cx.slice(1, -1).map((x, i) => (
+				<div
+					key={`c${i}`}
+					className="table-divider"
+					style={{ ...stripBase, left: x - hit / 2, top: th, width: hit, height: h - th, cursor: 'col-resize' }}
+					onPointerDown={(e) => startDrag(e, 'col', i)}
+					onDoubleClick={(e) => {
+						e.stopPropagation()
+						const cur = editor.getShape<TLTableShape>(shape.id)
+						if (!cur) return
+						editor.markHistoryStoppingPoint('table autofit')
+						editor.updateShape({ id: cur.id, type: 'table', props: autoFitColumn(cur, i) })
+					}}
+				/>
+			))}
+			{cy.slice(1, -1).map((y, i) => (
+				<div
+					key={`r${i}`}
+					className="table-divider"
+					style={{ ...stripBase, left: 0, top: y - hit / 2, width: w, height: hit, cursor: 'row-resize' }}
+					onPointerDown={(e) => startDrag(e, 'row', i)}
+				/>
+			))}
+		</>
+	)
+}
+
 function GridLines({
 	w,
 	h,
@@ -362,7 +369,13 @@ function GridLines({
 
 function TableComponent({ shape }: { shape: TLTableShape }) {
 	const theme = useDefaultColorTheme()
+	const editor = useEditor()
 	const isEditing = useIsEditing(shape.id)
+	const isSoleSelection = useValue(
+		'isSoleSelection',
+		() => editor.getOnlySelectedShapeId() === shape.id && editor.getCurrentToolId() === 'select',
+		[editor, shape.id]
+	)
 	const active = useValue(
 		'activeTableCell',
 		() => {
@@ -473,6 +486,7 @@ function TableComponent({ shape }: { shape: TLTableShape }) {
 			<svg style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }} width={w} height={h}>
 				<GridLines w={w} h={h} th={th} cx={cx} cy={cy} stroke={s.stroke} strokeWidth={s.strokeWidth} />
 			</svg>
+			{isSoleSelection && <DividerStrips shape={shape} />}
 		</HTMLContainer>
 	)
 }
