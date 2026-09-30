@@ -37,6 +37,18 @@ yarn dev           # or npm run dev
 
 Open `http://localhost:5173/` in your browser.
 
+## Backups
+
+The server takes a daily online backup of the SQLite database (on boot, then checked hourly) into `backups/` next to the database file — `/data/backups` in the container — and keeps the newest 14.
+
+| Env var | Default | |
+|---|---|---|
+| `BACKUP_DIR` | `<db dir>/backups` | Where backups are written |
+| `BACKUP_KEEP` | `14` | Number of daily backups to keep |
+| `BACKUP_DISABLED` | unset | Set to `1` to turn backups off |
+
+To restore: stop the container, copy the chosen `jdraw-YYYY-MM-DD.db` over `/data/jdraw.db`, delete any `jdraw.db-wal` / `jdraw.db-shm` next to it, and start the container again.
+
 ## Agent capabilities
 
 The agent can perform the following actions on the canvas:

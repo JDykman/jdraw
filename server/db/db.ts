@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-const DB_PATH = process.env.DB_PATH ?? join(process.cwd(), 'jdraw.db')
+export const DB_PATH = process.env.DB_PATH ?? join(process.cwd(), 'jdraw.db')
 
 export const db = new BetterSqlite3(DB_PATH)
 
