@@ -28,6 +28,8 @@ export function registerTablePasteHandler(editor: Editor) {
 			props: {
 				w,
 				h,
+				rowIds: [],
+				colIds: [],
 				colWidths: Array(cols).fill(TABLE_DEFAULT_COL_WIDTH),
 				rowHeights: Array(rows).fill(TABLE_DEFAULT_ROW_HEIGHT),
 				cells: grid,
@@ -38,10 +40,16 @@ export function registerTablePasteHandler(editor: Editor) {
 	})
 }
 
+import { registerTableArrowRetargeting } from './tableArrowRetarget'
 import { registerTableArrowSnapping } from './tableArrowSnap'
 
 /** Everything the table shape needs wired at editor mount. Pass to <Tldraw onMount>. */
 export function setupTableShape(editor: Editor) {
 	registerTablePasteHandler(editor)
-	return registerTableArrowSnapping(editor)
+	const disposeSnap = registerTableArrowSnapping(editor)
+	const disposeRetarget = registerTableArrowRetargeting(editor)
+	return () => {
+		disposeSnap()
+		disposeRetarget()
+	}
 }

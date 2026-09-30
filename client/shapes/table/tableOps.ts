@@ -1,3 +1,4 @@
+import { uniqueId } from 'tldraw'
 import {
 	TABLE_MIN_COL_WIDTH,
 	TABLE_MIN_ROW_HEIGHT,
@@ -5,7 +6,28 @@ import {
 	TLTableShapeProps,
 } from '../../../shared/table/tableShapeProps'
 
-type Dims = Pick<TLTableShapeProps, 'w' | 'h' | 'colWidths' | 'rowHeights' | 'cells' | 'showTitle' | 'colAlign' | 'colMono'>
+type Dims = Pick<
+	TLTableShapeProps,
+	'w' | 'h' | 'colWidths' | 'rowHeights' | 'cells' | 'showTitle' | 'colAlign' | 'colMono' | 'rowIds' | 'colIds'
+>
+
+const newId = () => uniqueId(8)
+
+/** Pad/truncate an id list to n and replace duplicates. */
+function fixIds(ids: string[], n: number): string[] | null {
+	const seen = new Set<string>()
+	let changed = ids.length !== n
+	const out = Array.from({ length: n }, (_, i) => {
+		let id = ids[i]
+		if (!id || seen.has(id)) {
+			id = newId()
+			changed = true
+		}
+		seen.add(id)
+		return id
+	})
+	return changed ? out : null
+}
 
 const sum = (a: number[]) => a.reduce((s, v) => s + v, 0)
 
@@ -22,7 +44,7 @@ export function titleHeight(props: Pick<Dims, 'showTitle'>): number {
  * Returns the same object if nothing changed.
  */
 export function normalizeTable<P extends Dims>(props: P): P {
-	let { colWidths, rowHeights, cells, colAlign, colMono } = props
+	let { colWidths, rowHeights, cells, colAlign, colMono, rowIds, colIds } = props
 	const rows = Math.max(rowHeights.length, cells.length, 1)
 	const cols = Math.max(colWidths.length, ...cells.map((r) => r.length), 1)
 
@@ -41,6 +63,16 @@ export function normalizeTable<P extends Dims>(props: P): P {
 		changed = true
 	}
 
+	const fixedRowIds = fixIds(rowIds ?? [], rows)
+	if (fixedRowIds) {
+		rowIds = fixedRowIds
+		changed = true
+	}
+	const fixedColIds = fixIds(colIds ?? [], cols)
+	if (fixedColIds) {
+		colIds = fixedColIds
+		changed = true
+	}
 	if (colAlign.length !== cols) {
 		colAlign = Array.from({ length: cols }, (_, i) => colAlign[i] ?? null)
 		changed = true
@@ -64,7 +96,7 @@ export function normalizeTable<P extends Dims>(props: P): P {
 	if (Math.abs(w - props.w) > 0.01 || Math.abs(h - props.h) > 0.01) changed = true
 
 	if (!changed) return props
-	return { ...props, w, h, colWidths, rowHeights, cells, colAlign, colMono }
+	return { ...props, w, h, colWidths, rowHeights, cells, colAlign, colMono, rowIds, colIds }
 }
 
 /** Scale colWidths/rowHeights to exactly fill w/h (used after box resize). h is the total shape height incl. title. */
@@ -85,17 +117,20 @@ export function insertRow<P extends Dims>(props: P, index: number): P {
 	const ref = props.rowHeights[Math.min(i, rows - 1)] ?? TABLE_MIN_ROW_HEIGHT
 	const rowHeights = [...props.rowHeights]
 	rowHeights.splice(i, 0, ref)
+	const rowIds = [...props.rowIds]
+	rowIds.splice(i, 0, newId())
 	const cells = props.cells.map((r) => [...r])
 	cells.splice(i, 0, Array.from({ length: props.colWidths.length }, () => ''))
-	return normalizeTable({ ...props, rowHeights, cells })
+	return normalizeTable({ ...props, rowHeights, rowIds, cells })
 }
 
 export function deleteRow<P extends Dims>(props: P, index: number): P {
 	if (props.rowHeights.length <= 1) return props
 	const i = Math.max(0, Math.min(index, props.rowHeights.length - 1))
 	const rowHeights = props.rowHeights.filter((_, k) => k !== i)
+	const rowIds = props.rowIds.filter((_, k) => k !== i)
 	const cells = props.cells.filter((_, k) => k !== i).map((r) => [...r])
-	return normalizeTable({ ...props, rowHeights, cells })
+	return normalizeTable({ ...props, rowHeights, rowIds, cells })
 }
 
 export function insertCol<P extends Dims>(props: P, index: number): P {
@@ -108,12 +143,14 @@ export function insertCol<P extends Dims>(props: P, index: number): P {
 	colAlign.splice(i, 0, null)
 	const colMono = [...props.colMono]
 	colMono.splice(i, 0, false)
+	const colIds = [...props.colIds]
+	colIds.splice(i, 0, newId())
 	const cells = props.cells.map((r) => {
 		const row = [...r]
 		row.splice(i, 0, '')
 		return row
 	})
-	return normalizeTable({ ...props, colWidths, colAlign, colMono, cells })
+	return normalizeTable({ ...props, colWidths, colAlign, colMono, colIds, cells })
 }
 
 export function deleteCol<P extends Dims>(props: P, index: number): P {
@@ -122,8 +159,9 @@ export function deleteCol<P extends Dims>(props: P, index: number): P {
 	const colWidths = props.colWidths.filter((_, k) => k !== i)
 	const colAlign = props.colAlign.filter((_, k) => k !== i)
 	const colMono = props.colMono.filter((_, k) => k !== i)
+	const colIds = props.colIds.filter((_, k) => k !== i)
 	const cells = props.cells.map((r) => r.filter((_, k) => k !== i))
-	return normalizeTable({ ...props, colWidths, colAlign, colMono, cells })
+	return normalizeTable({ ...props, colWidths, colAlign, colMono, colIds, cells })
 }
 
 function moveItem<T>(arr: T[], from: number, to: number): T[] {
@@ -140,6 +178,7 @@ export function moveRow<P extends Dims>(props: P, from: number, to: number): P {
 	return {
 		...props,
 		rowHeights: moveItem(props.rowHeights, from, to),
+		rowIds: moveItem(props.rowIds, from, to),
 		cells: moveItem(props.cells, from, to),
 	}
 }
@@ -153,6 +192,7 @@ export function moveCol<P extends Dims>(props: P, from: number, to: number): P {
 		colWidths: moveItem(props.colWidths, from, to),
 		colAlign: moveItem(props.colAlign, from, to),
 		colMono: moveItem(props.colMono, from, to),
+		colIds: moveItem(props.colIds, from, to),
 		cells: props.cells.map((r) => moveItem(r, from, to)),
 	}
 }

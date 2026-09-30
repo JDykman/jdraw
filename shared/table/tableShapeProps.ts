@@ -19,6 +19,9 @@ import { T } from '@tldraw/validate'
 export const tableShapeProps = {
 	w: T.positiveNumber,
 	h: T.positiveNumber,
+	/** Stable per-row / per-column ids; survive insert, delete and reorder. Used to keep arrows attached. */
+	rowIds: T.arrayOf(T.string),
+	colIds: T.arrayOf(T.string),
 	/** One entry per column; sum === w */
 	colWidths: T.arrayOf(T.positiveNumber),
 	/** One entry per row; sum === h */
@@ -54,6 +57,7 @@ declare module '@tldraw/tlschema' {
 export const tableShapeVersions = createShapePropsMigrationIds('table', {
 	AddTitle: 1,
 	AddColumnStyles: 2,
+	AddRowColIds: 3,
 })
 
 export const tableShapeMigrations = createShapePropsMigrationSequence({
@@ -79,6 +83,20 @@ export const tableShapeMigrations = createShapePropsMigrationSequence({
 			down: (props) => {
 				delete props.colAlign
 				delete props.colMono
+			},
+		},
+		{
+			id: tableShapeVersions.AddRowColIds,
+			// Deterministic so server- and client-side migrations of the same record agree.
+			up: (props) => {
+				const rows = Array.isArray(props.rowHeights) ? props.rowHeights.length : 0
+				const cols = Array.isArray(props.colWidths) ? props.colWidths.length : 0
+				props.rowIds = Array.from({ length: rows }, (_, i) => `r${i}`)
+				props.colIds = Array.from({ length: cols }, (_, i) => `c${i}`)
+			},
+			down: (props) => {
+				delete props.rowIds
+				delete props.colIds
 			},
 		},
 	],

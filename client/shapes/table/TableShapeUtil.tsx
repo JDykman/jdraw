@@ -61,6 +61,9 @@ export class TableShapeUtil extends ShapeUtil<TLTableShape> {
 		return {
 			w: cols * TABLE_DEFAULT_COL_WIDTH,
 			h: rows * TABLE_DEFAULT_ROW_HEIGHT,
+			// Empty: normalizeTable (onBeforeCreate) fills these with fresh unique ids.
+			rowIds: [],
+			colIds: [],
 			colWidths: Array(cols).fill(TABLE_DEFAULT_COL_WIDTH),
 			rowHeights: Array(rows).fill(TABLE_DEFAULT_ROW_HEIGHT),
 			cells: Array.from({ length: rows }, () => Array(cols).fill('')),

@@ -1,5 +1,6 @@
 import { Editor, TLArrowBinding, TLBinding, Vec } from 'tldraw'
 import { TLTableShape } from '../../../shared/table/tableShapeProps'
+import { isRetargetingTableArrows } from './tableArrowRetarget'
 import { cumulative, titleHeight } from './tableOps'
 
 /** Screen pixels within which an arrow endpoint snaps to a row/column point. */
@@ -33,7 +34,11 @@ export function getTableSnapPoints(shape: TLTableShape): Vec[] {
 export function registerTableArrowSnapping(editor: Editor) {
 	const snap = (binding: TLBinding): TLBinding => {
 		if (binding.type !== 'arrow') return binding
+		if (isRetargetingTableArrows()) return binding
 		if (!editor.inputs.getIsPointing()) return binding
+		// Only snap while an arrow is being drawn or its endpoint dragged, not during e.g. a divider drag.
+		const arrow = editor.getShape(binding.fromId)
+		if (!arrow || !editor.getSelectedShapeIds().includes(arrow.id)) return binding
 		const target = editor.getShape(binding.toId)
 		if (!target || !editor.isShapeOfType<TLTableShape>(target, 'table')) return binding
 
