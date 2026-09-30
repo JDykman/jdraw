@@ -7,6 +7,7 @@ import {
 	useEditor,
 	useValue,
 } from 'tldraw'
+import { DiagramContextMenuItems } from '../../diagram/DiagramMenu'
 import { copySelectedTablesAsSql, getSelectedTables } from './tableSqlExport'
 import { copyTableAs, getSelectedTable, runTableOp } from './TableToolbar'
 
@@ -50,6 +51,7 @@ export function TableContextMenu(props: TLUiContextMenuProps) {
 					/>
 				</TldrawUiMenuGroup>
 			)}
+			<DiagramContextMenuItems />
 			<DefaultContextMenuContent />
 		</DefaultContextMenu>
 	)
