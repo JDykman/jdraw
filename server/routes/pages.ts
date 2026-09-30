@@ -250,6 +250,13 @@ router.put('/:id/thumbnail', express.raw({ type: 'image/png', limit: '1mb' }), (
 	res.json({ updatedAt: now })
 })
 
+// Clear a thumbnail (the page was emptied)
+router.delete('/:id/thumbnail', (req, res) => {
+	if (!canAccess(req.user!.id, req.params.id).allowed) { res.status(403).json({ error: 'Forbidden' }); return }
+	db.prepare('DELETE FROM page_thumbnails WHERE page_id = ?').run(req.params.id)
+	res.json({ ok: true })
+})
+
 // Copy a page (content, tags, thumbnail) into a new page owned by the current user
 router.post('/:id/duplicate', (req, res) => {
 	const userId = req.user!.id
