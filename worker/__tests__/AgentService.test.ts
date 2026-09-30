@@ -131,4 +131,19 @@ describe('AgentService with modern Claude models', () => {
 		assert.equal(actions[0]._type, 'message')
 		assert.match((actions[0] as { text: string }).text, /login flow/)
 	})
+
+	it('applies actions written as tool-call markup', async () => {
+		const model = mockModel(
+			'claude-sonnet-5-5',
+			'anthropic.messages',
+			'<invoke name="think"><parameter name="text">plan</parameter></invoke>\n<invoke name="message"><parameter name="text">Done.</parameter></invoke>'
+		)
+		const actions = await collect(new TestService(model), prompt('claude-sonnet-5-5'))
+		const done = actions.filter((a) => a.complete)
+		assert.deepEqual(
+			done.map((a) => a._type),
+			['think', 'message']
+		)
+		assert.equal((done[1] as { text: string }).text, 'Done.')
+	})
 })

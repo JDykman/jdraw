@@ -12,6 +12,7 @@ import { buildMessages } from '../prompt/buildMessages'
 import { buildSystemPrompt } from '../prompt/buildSystemPrompt'
 import { getModelName } from '../prompt/getModelName'
 import { closeAndParseJson } from './closeAndParseJson'
+import { looksLikeInvokeMarkup, parseInvokeActions } from './parseInvokeActions'
 
 export class AgentService {
 	openai: OpenAIProvider
@@ -159,7 +160,7 @@ export class AgentService {
 			for await (const text of textStream) {
 				buffer += text
 
-				const partialObject = closeAndParseJson(canForceResponseStart ? buffer : stripToJson(buffer))
+				const partialObject = canForceResponseStart ? closeAndParseJson(buffer) : parseUnprefilledReply(buffer)
 				if (!partialObject) continue
 
 				const actions = partialObject.actions
@@ -237,7 +238,7 @@ const OUTPUT_FORMAT_REMINDER = `
 
 ## Output format
 
-Reply with exactly one JSON object of the form {"actions": [ ... ]} that conforms to the schema above. Start your reply with \`{\`: no prose before or after it and no code fences. To say something to the user, put a \`message\` action inside \`actions\`.
+Reply with exactly one JSON object of the form {"actions": [ ... ]} that conforms to the schema above. Start your reply with \`{\`: no prose before or after it, no code fences, and no XML or function-call tags (these actions are not tools). To say something to the user, put a \`message\` action inside \`actions\`.
 `
 
 /**
@@ -251,6 +252,12 @@ export function stripToJson(text: string): string {
 	const arrayStart = text.search(/\[\s*\{\s*"_type"/)
 	if (arrayStart !== -1) return `{"actions": ${text.slice(arrayStart)}`
 	return ''
+}
+
+/** Parse a reply from a model that wasn't prefilled: JSON actions, or tool-call style markup. */
+function parseUnprefilledReply(text: string): { actions: unknown[] } | null {
+	if (looksLikeInvokeMarkup(text)) return { actions: parseInvokeActions(text) }
+	return closeAndParseJson(stripToJson(text))
 }
 
 function stripCodeFence(text: string): string {
