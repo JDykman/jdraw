@@ -423,3 +423,25 @@ export const UnknownAction = z
 	})
 
 export type UnknownAction = z.infer<typeof UnknownAction>
+
+// Cluster Action
+// Not exported: every exported Zod schema in this file is treated as an action.
+const ClusterGroup = z.object({
+	title: z.string(),
+	shapeIds: z.array(SimpleShapeIdSchema),
+})
+
+export const ClusterAction = z
+	.object({
+		_type: z.literal('cluster'),
+		intent: z.string(),
+		groups: z.array(ClusterGroup),
+	})
+	.meta({
+		title: 'Cluster',
+		description:
+			'The AI sorts shapes (usually sticky notes from a brainstorm or retro) into themed groups. Only decide the grouping and a short title per group; the app lays each group out in a titled frame, side by side, where the shapes currently are. Put every shape being sorted in exactly one group, use 2–8 groups, and use a "Other" group for leftovers. Prefer this over moving notes one by one.',
+		_systemPromptCategory: 'edit',
+	})
+
+export type ClusterAction = z.infer<typeof ClusterAction>

@@ -6,6 +6,7 @@ import { AddDetailActionUtil } from '../actions/AddDetailActionUtil'
 import { AlignActionUtil } from '../actions/AlignActionUtil'
 import { BringToFrontActionUtil } from '../actions/BringToFrontActionUtil'
 import { ClearActionUtil } from '../actions/ClearActionUtil'
+import { ClusterActionUtil } from '../actions/ClusterActionUtil'
 import { CountryInfoActionUtil } from '../actions/CountryInfoActionUtil'
 import { CountShapesActionUtil } from '../actions/CountShapesActionUtil'
 import { CreateActionUtil } from '../actions/CreateActionUtil'
@@ -161,6 +162,7 @@ export const AGENT_MODE_DEFINITIONS = [
 			AlignActionUtil.type,
 			DistributeActionUtil.type,
 			StackActionUtil.type,
+			ClusterActionUtil.type,
 			ClearActionUtil.type,
 
 			// Drawing

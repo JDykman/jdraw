@@ -30,6 +30,9 @@ const TS_PROMPT = `Draw a diagram of the following TypeScript types. Use one tab
 \`\`\`ts
 `
 
+export const STICKY_SORT_PROMPT = (selectionOnly: boolean) =>
+	`Sort ${selectionOnly ? 'the selected' : 'all the'} sticky notes into themed groups with the cluster action. Read every note first, pick short, specific group titles, and don't change the notes' text.`
+
 function ImportDiagramDialog({ onClose }: TLUiDialogProps) {
 	const editor = useEditor()
 	const app = useTldrawAgentAppFromEditor()
@@ -123,6 +126,15 @@ export function DiagramContextMenuItems() {
 	const layoutCount = useValue('layout targets', () => getLayoutTargets(editor).length, [editor])
 	const hasSelection = useValue('has selection', () => editor.getSelectedShapeIds().length > 0, [editor])
 	const scope = hasSelection ? 'selection' : 'page'
+	const app = useTldrawAgentAppFromEditor()
+	const noteCount = useValue(
+		'sortable notes',
+		() => {
+			const pool = editor.getSelectedShapes().length ? editor.getSelectedShapes() : editor.getCurrentPageShapes()
+			return pool.filter((s) => s.type === 'note').length
+		},
+		[editor]
+	)
 
 	const layout = (direction: 'TB' | 'LR') => {
 		if (!layoutShapes(editor, getLayoutTargets(editor), direction)) {
@@ -137,6 +149,15 @@ export function DiagramContextMenuItems() {
 					<TldrawUiMenuItem id="diagram-layout-tb" label={`Auto-layout ${scope} ↓`} onSelect={() => layout('TB')} />
 					<TldrawUiMenuItem id="diagram-layout-lr" label={`Auto-layout ${scope} →`} onSelect={() => layout('LR')} />
 				</>
+			)}
+			{noteCount >= 3 && app && (
+				<TldrawUiMenuItem
+					id="diagram-cluster-notes"
+					label={`Sort ${noteCount} sticky notes into groups (AI)`}
+					onSelect={() => {
+						app.agents.getAgent()?.prompt(STICKY_SORT_PROMPT(hasSelection))
+					}}
+				/>
 			)}
 			<TldrawUiMenuItem
 				id="diagram-copy-mermaid"
