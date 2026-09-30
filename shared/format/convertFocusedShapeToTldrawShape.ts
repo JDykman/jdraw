@@ -20,6 +20,14 @@ import {
 	Vec,
 	VecLike,
 } from 'tldraw'
+import { rowAnchorPoint, tableSnapPoints } from '../table/tableOps'
+import {
+	TABLE_MIN_COL_WIDTH,
+	TABLE_MIN_ROW_HEIGHT,
+	TABLE_TITLE_HEIGHT,
+	TLTableShape,
+	TLTableShapeProps,
+} from '../table/tableShapeProps'
 import { asColor } from './FocusedColor'
 import { convertFocusedFillToTldrawFill } from './FocusedFill'
 import { convertFocusedFontSizeToTldrawFontSizeAndScale } from './FocusedFontSize'
@@ -33,6 +41,7 @@ import {
 	FocusedNoteShape,
 	FocusedShape,
 	FocusedShapePartial,
+	FocusedTableShape,
 	FocusedTextShape,
 	FocusedTextShapePartial,
 	FocusedUnknownShape,
@@ -87,6 +96,9 @@ export function convertFocusedShapeToTldrawShape(
 		}
 		case 'draw': {
 			return convertDrawShapeToTldrawShape(editor, focusedShape, { defaultShape })
+		}
+		case 'table': {
+			return convertTableShapeToTldrawShape(editor, focusedShape, { defaultShape })
 		}
 		case 'unknown': {
 			return convertUnknownShapeToTldrawShape(editor, focusedShape, { defaultShape })
@@ -411,7 +423,10 @@ function convertArrowShapeToTldrawShape(
 		const startShape = editor.getShape(fromId)
 		if (startShape) {
 			const targetPoint = { x: x1, y: y1 }
-			const finalNormalizedAnchor = calculateArrowBindingAnchor(editor, startShape, targetPoint)
+			const finalNormalizedAnchor = calculateArrowBindingAnchor(editor, startShape, targetPoint, {
+				row: focusedShape.fromRow,
+				otherEnd: { x: x2, y: y2 },
+			})
 			bindings.push({
 				type: 'arrow',
 				typeName: 'binding',
@@ -433,7 +448,10 @@ function convertArrowShapeToTldrawShape(
 		const endShape = editor.getShape(toId)
 		if (endShape) {
 			const targetPoint = { x: x2, y: y2 }
-			const finalNormalizedAnchor = calculateArrowBindingAnchor(editor, endShape, targetPoint)
+			const finalNormalizedAnchor = calculateArrowBindingAnchor(editor, endShape, targetPoint, {
+				row: focusedShape.toRow,
+				otherEnd: { x: x1, y: y1 },
+			})
 			bindings.push({
 				type: 'arrow',
 				typeName: 'binding',
@@ -651,8 +669,12 @@ function convertUnknownShapeToTldrawShape(
 function calculateArrowBindingAnchor(
 	editor: Editor,
 	targetShape: TLShape,
-	targetPoint: VecLike
+	targetPoint: VecLike,
+	opts: { row?: number; otherEnd?: VecLike } = {}
 ): VecLike {
+	if (targetShape.type === 'table') {
+		return calculateTableArrowAnchor(editor, targetShape as TLTableShape, targetPoint, opts)
+	}
 	const targetShapePageBounds = editor.getShapePageBounds(targetShape)
 	const targetShapeGeometry = editor.getShapeGeometry(targetShape)
 
@@ -698,6 +720,148 @@ function calculateArrowBindingAnchor(
 
 	return finalNormalizedAnchor
 }
+
+/**
+ * Arrows attach to table edges: at a given row (on the side facing the arrow's other end),
+ * or otherwise at the row/column snap point nearest the requested point.
+ */
+function calculateTableArrowAnchor(
+	editor: Editor,
+	table: TLTableShape,
+	targetPoint: VecLike,
+	{ row, otherEnd }: { row?: number; otherEnd?: VecLike }
+): VecLike {
+	const p = table.props
+	const toShape = (pt: VecLike) => editor.getPointInShapeSpace(table, pt)
+	let anchor: { x: number; y: number }
+	if (row !== undefined && Number.isFinite(row)) {
+		const facing = otherEnd ? toShape(otherEnd) : toShape(targetPoint)
+		anchor = rowAnchorPoint(p, row, facing.x < p.w / 2 ? 'left' : 'right')
+	} else {
+		const local = toShape(targetPoint)
+		anchor = tableSnapPoints(p).reduce((best, pt) =>
+			Vec.Dist(pt, local) < Vec.Dist(best, local) ? pt : best
+		)
+	}
+	return { x: anchor.x / p.w, y: anchor.y / p.h }
+}
+
+const TABLE_CELL_PADDING = 6
+
+/** Rough content-based column width / row height, used when the agent doesn't give sizes. */
+function estimateTableSizes(rows: string[][], fontSize: number, headerRow: boolean) {
+	const charW = fontSize * 0.6
+	const lineH = fontSize * 1.35
+	const cols = rows[0]?.length ?? 1
+	const colWidths = Array.from({ length: cols }, (_, c) => {
+		let widest = 0
+		rows.forEach((r, ri) => {
+			for (const line of (r[c] ?? '').split('\n')) {
+				widest = Math.max(widest, line.length * charW * (headerRow && ri === 0 ? 1.1 : 1))
+			}
+		})
+		return Math.min(400, Math.max(80, Math.ceil(widest + TABLE_CELL_PADDING * 2 + 4)))
+	})
+	const rowHeights = rows.map((r) => {
+		const lines = Math.max(1, ...r.map((c) => (c ?? '').split('\n').length))
+		return Math.max(40, Math.ceil(lines * lineH + TABLE_CELL_PADDING * 2))
+	})
+	return { colWidths, rowHeights }
+}
+
+/**
+ * Use `given` if it has exactly n valid sizes. Otherwise keep existing sizes by index (so adding a
+ * column doesn't resize the others) and auto-size only the new ones.
+ */
+function pickSizes(given: number[] | undefined, existing: number[] | undefined, auto: number[], min: number) {
+	const n = auto.length
+	const valid = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0
+	if (given && given.length === n && given.every(valid)) return given.map((v) => Math.max(min, v))
+	return auto.map((a, i) => Math.max(min, existing && valid(existing[i]) ? existing[i] : a))
+}
+
+function convertTableShapeToTldrawShape(
+	editor: Editor,
+	focusedShape: FocusedTableShape,
+	{ defaultShape }: { defaultShape: Partial<TLShape> }
+): { shape: TLShape } {
+	const shapeId = convertSimpleIdToTldrawId(focusedShape.shapeId)
+	const def = defaultShape as Partial<TLTableShape>
+	const base = editor.getShapeUtil<TLTableShape>('table').getDefaultProps()
+	// Only treat defaultShape as an existing table when it really is one (not the generic create defaults).
+	const existing: Partial<TLTableShapeProps> = def.type === 'table' ? (def.props ?? {}) : {}
+
+	// Rectangular grid, at least 1x1.
+	const rawRows = Array.isArray(focusedShape.rows) && focusedShape.rows.length ? focusedShape.rows : [['']]
+	const cols = Math.max(1, ...rawRows.map((r) => (Array.isArray(r) ? r.length : 0)))
+	const cells = rawRows.map((r) =>
+		Array.from({ length: cols }, (_, c) => (Array.isArray(r) && r[c] != null ? String(r[c]) : ''))
+	)
+
+	const size = existing.size ?? base.size
+	const headerRow = focusedShape.headerRow ?? existing.headerRow ?? base.headerRow
+	const auto = estimateTableSizes(cells, LABEL_FONT_SIZE_BY_SIZE[size] ?? 18, headerRow)
+	const colWidths = pickSizes(focusedShape.colWidths, existing.colWidths, auto.colWidths, TABLE_MIN_COL_WIDTH)
+	const rowHeights = pickSizes(focusedShape.rowHeights, existing.rowHeights, auto.rowHeights, TABLE_MIN_ROW_HEIGHT)
+
+	// Keep row/column ids (and per-column styles) by index so arrows and styling survive a full rewrite.
+	const byIndex = <T,>(arr: T[] | undefined, n: number, fill: T) =>
+		Array.from({ length: n }, (_, i) => (arr && i < arr.length ? arr[i] : fill))
+	const rowIds = (existing.rowIds ?? []).slice(0, cells.length)
+	const colIds = (existing.colIds ?? []).slice(0, cols)
+	const colAlign = byIndex(existing.colAlign, cols, null)
+	const colMono = focusedShape.monoColumns
+		? Array.from({ length: cols }, (_, i) => focusedShape.monoColumns!.includes(i))
+		: byIndex(existing.colMono, cols, false)
+
+	const title = focusedShape.title !== undefined ? focusedShape.title : (existing.title ?? '')
+	const showTitle = focusedShape.title !== undefined ? focusedShape.title.trim() !== '' : (existing.showTitle ?? false)
+	const fill =
+		focusedShape.fill !== undefined
+			? (convertFocusedFillToTldrawFill(focusedShape.fill) ?? 'none')
+			: (existing.fill ?? base.fill)
+
+	const w = colWidths.reduce((a, b) => a + b, 0)
+	const h = (showTitle ? TABLE_TITLE_HEIGHT : 0) + rowHeights.reduce((a, b) => a + b, 0)
+
+	return {
+		shape: {
+			id: shapeId,
+			type: 'table',
+			typeName: 'shape',
+			x: focusedShape.x ?? def.x ?? 0,
+			y: focusedShape.y ?? def.y ?? 0,
+			rotation: def.rotation ?? 0,
+			index: def.index ?? editor.getHighestIndexForParent(editor.getCurrentPageId()),
+			parentId: def.parentId ?? editor.getCurrentPageId(),
+			isLocked: def.isLocked ?? false,
+			opacity: def.opacity ?? 1,
+			props: {
+				...base,
+				...existing,
+				w,
+				h,
+				cells,
+				colWidths,
+				rowHeights,
+				rowIds,
+				colIds,
+				colAlign,
+				colMono,
+				headerRow,
+				title,
+				showTitle,
+				fill,
+				color: asColor(focusedShape.color ?? existing.color ?? base.color),
+			},
+			meta: {
+				note: focusedShape.note ?? def.meta?.note ?? '',
+			},
+		} as TLShape,
+	}
+}
+
+const LABEL_FONT_SIZE_BY_SIZE: Record<string, number> = { s: 18, m: 22, l: 26, xl: 32 }
 
 /**
  * Get the bounds of a shape by temporarily creating it in the editor.

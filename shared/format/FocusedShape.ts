@@ -97,6 +97,9 @@ const FocusedArrowShape = z.object({
 	shapeId: SimpleShapeIdSchema,
 	text: z.string().optional(),
 	toId: SimpleShapeIdSchema.nullable(),
+	/** When fromId/toId is a table: attach to this row (0-based, header row included) on the side facing the other end. */
+	fromRow: z.number().int().optional(),
+	toRow: z.number().int().optional(),
 	x1: z.number(),
 	x2: z.number(),
 	y1: z.number(),
@@ -122,6 +125,39 @@ const FocusedDrawShape = z
 
 export type FocusedDrawShape = z.infer<typeof FocusedDrawShape>
 
+const FocusedTableShape = z
+	.object({
+		_type: z.literal('table'),
+		color: FocusedColor,
+		fill: FocusedFillSchema.optional(),
+		note: z.string(),
+		shapeId: SimpleShapeIdSchema,
+		x: z.number(),
+		y: z.number(),
+		/** Read-only: derived from colWidths / rowHeights (+ title band). Ignored when writing. */
+		w: z.number().optional(),
+		h: z.number().optional(),
+		/** Caption shown in a band above the grid. Empty string or omitted = no title. */
+		title: z.string().optional(),
+		/** Whether rows[0] is a bold header row. Defaults to true. */
+		headerRow: z.boolean().optional(),
+		/** Cell text, rows[row][col]. Every row must have the same length. Supports **bold**, *italic*, `code`. */
+		rows: z.array(z.array(z.string())),
+		/** Column widths in px, one per column. Omit to auto-size from content. */
+		colWidths: z.array(z.number()).optional(),
+		/** Row heights in px, one per row. Omit to auto-size from content. */
+		rowHeights: z.array(z.number()).optional(),
+		/** Indices of columns rendered in a monospace font (e.g. SQL types). */
+		monoColumns: z.array(z.number().int()).optional(),
+	})
+	.meta({
+		title: 'Table Shape',
+		description:
+			'A structured table with rows and columns of text cells. `x`/`y` is the top-left corner. Width and height come from `colWidths` and `rowHeights` (auto-sized from content when omitted); `w`/`h` are reported for reference only. Use the `table-edit` action to insert, delete, or move rows and columns or to change individual cells, since it keeps connected arrows attached. Use `create`/`update` with a full table only when creating a table or rewriting it entirely.',
+	})
+
+export type FocusedTableShape = z.infer<typeof FocusedTableShape>
+
 const FocusedUnknownShape = z
 	.object({
 		_type: z.literal('unknown'),
@@ -146,6 +182,7 @@ const FOCUSED_SHAPES = [
 	FocusedTextShape,
 	FocusedArrowShape,
 	FocusedNoteShape,
+	FocusedTableShape,
 	FocusedUnknownShape,
 ] as const
 export const FocusedShapeSchema = z.union(FOCUSED_SHAPES)

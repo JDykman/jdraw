@@ -132,6 +132,18 @@ ${flagged(
 	- If geometry shapes or note shapes have text, the shapes will become taller to accommodate the text. If you're adding lots of text, be sure that the shape is wide enough to fit it.
 	- Note shapes are 200x200. They're sticky notes and are only suitable for tiny sentences. Use a geometric shape or text shape if you need to write more.
 	- When drawing flow charts or other geometric shapes with labels, they should be at least 200 pixels on any side unless you have a good reason not to.
+- Tables
+	- Use a \`table\` shape for anything tabular: database schemas / ER diagrams, comparisons, specs, schedules, key-value lists. Don't fake a table with rectangles and text.
+	- \`rows\` is the whole grid including the header row: \`rows[0]\` is the header when \`headerRow\` is true (the default). Every row must have the same number of cells.
+	- Omit \`colWidths\` and \`rowHeights\` when creating a table; they are sized from the content. The table's size is the sum of its column widths and row heights (plus a 36px band when it has a \`title\`). \`w\` and \`h\` are read-only.
+	- Cells support inline markdown: double asterisks for bold, single asterisks for italic, backticks for code. Use \`monoColumns\` for columns holding code, types, or identifiers.
+	- For a database table / ER entity: set \`title\` to the table name, use a header row like ["Column", "Type", "Key"], one row per column, mark keys with PK / FK / UNIQUE / NOT NULL, and put the Type column in \`monoColumns\`.${flagged(
+		flags.hasTableEdit,
+		`
+	- To change an existing table, use \`table-edit\` (insert / delete / move rows and columns, set cells, set title). Only use \`update\` on a table to rewrite it entirely: \`table-edit\` keeps arrows attached to the right rows, \`update\` matches rows by position.`
+	)}
+	- To connect an arrow to a specific row of a table (e.g. a foreign key to a primary key), set \`fromId\`/\`toId\` to the table and \`fromRow\`/\`toRow\` to the row index (0 = header row). The arrow attaches to the table's left or right edge at that row, whichever side faces the arrow's other end. Without a row, it attaches to the table edge point nearest to \`x1,y1\` / \`x2,y2\`.
+	- Place tables that will be connected side by side with at least 150px between them so arrows have room.
 - Colors
 	- When specifying a fill, you can use \`background\` to make the shape the same color as the background${flagged(flags.hasScreenshotPart, ", which you'll see in your viewport")}. It will either be white or black, depending on the theme of the canvas.
 		- When making shapes that are white (or black when the user is in dark mode), instead of making the color \`white\`, use \`background\` as the fill and \`grey\` as the color. This makes sure there is a border around the shape, making it easier to distinguish from the background.`

@@ -4,7 +4,7 @@ import {
 	TABLE_MIN_ROW_HEIGHT,
 	TABLE_TITLE_HEIGHT,
 	TLTableShapeProps,
-} from '../../../shared/table/tableShapeProps'
+} from './tableShapeProps'
 
 type Dims = Pick<
 	TLTableShapeProps,
@@ -288,4 +288,44 @@ export function cellAtPoint(props: Dims, x: number, y: number): { row: number; c
 	if (col < 0) col = x < 0 ? 0 : props.colWidths.length - 1
 	if (row < 0) row = y < 0 ? 0 : props.rowHeights.length - 1
 	return { row, col }
+}
+
+/** Shape-space centre line of a row (y) and the table's left/right edges. */
+export function rowAnchorPoint(props: Pick<Dims, 'w' | 'rowHeights' | 'showTitle'>, row: number, side: 'left' | 'right') {
+	const r = Math.max(0, Math.min(row, props.rowHeights.length - 1))
+	const cy = cumulative(props.rowHeights)
+	return { x: side === 'left' ? 0 : props.w, y: titleHeight(props) + cy[r] + props.rowHeights[r] / 2 }
+}
+
+/**
+ * Arrow snap points in shape space: every row midpoint on the left/right edges, every column
+ * midpoint on the top/bottom edges, plus the title band's left/right midpoints.
+ */
+export function tableSnapPoints(props: Pick<Dims, 'w' | 'h' | 'colWidths' | 'rowHeights' | 'showTitle'>) {
+	const { w, h, colWidths, rowHeights } = props
+	const th = titleHeight(props)
+	const cx = cumulative(colWidths)
+	const cy = cumulative(rowHeights)
+	const pts: { x: number; y: number }[] = []
+	rowHeights.forEach((rh, i) => {
+		const y = th + cy[i] + rh / 2
+		pts.push({ x: 0, y }, { x: w, y })
+	})
+	colWidths.forEach((cw, i) => {
+		const x = cx[i] + cw / 2
+		pts.push({ x, y: 0 }, { x, y: h })
+	})
+	if (th > 0) pts.push({ x: 0, y: th / 2 }, { x: w, y: th / 2 })
+	return pts
+}
+
+/** If a shape-space point sits on the left/right edge at a row's centre line, return that row. */
+export function rowAtEdgeAnchor(props: Pick<Dims, 'w' | 'rowHeights' | 'showTitle'>, x: number, y: number): number | null {
+	if (Math.abs(x) > 1 && Math.abs(x - props.w) > 1) return null
+	const th = titleHeight(props)
+	const cy = cumulative(props.rowHeights)
+	for (let i = 0; i < props.rowHeights.length; i++) {
+		if (y >= th + cy[i] && y < th + cy[i + 1]) return i
+	}
+	return null
 }

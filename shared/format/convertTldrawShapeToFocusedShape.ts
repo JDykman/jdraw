@@ -16,6 +16,8 @@ import {
 	TLTextShape,
 	Vec,
 } from 'tldraw'
+import { rowAtEdgeAnchor } from '../table/tableOps'
+import { TLTableShape } from '../table/tableShapeProps'
 import { SimpleShapeId } from '../types/ids-schema'
 import { convertTldrawFillToFocusedFill } from './FocusedFill'
 import { convertTldrawFontSizeAndScaleToFocusedFontSize } from './FocusedFontSize'
@@ -27,6 +29,7 @@ import {
 	FocusedLineShape,
 	FocusedNoteShape,
 	FocusedShape,
+	FocusedTableShape,
 	FocusedTextAnchor,
 	FocusedTextShape,
 	FocusedUnknownShape,
@@ -49,6 +52,8 @@ export function convertTldrawShapeToFocusedShape(editor: Editor, shape: TLShape)
 			return convertNoteShapeToFocused(editor, shape as TLNoteShape)
 		case 'draw':
 			return convertDrawShapeToFocused(editor, shape as TLDrawShape)
+		case 'table':
+			return convertTableShapeToFocused(editor, shape as TLTableShape)
 		default:
 			return convertUnknownShapeToFocused(editor, shape)
 	}
@@ -65,6 +70,7 @@ export function convertTldrawShapeToFocusedType(shape: TLShape): FocusedShape['_
 		case 'arrow':
 		case 'note':
 		case 'draw':
+		case 'table':
 			return shape.type
 		default:
 			return 'unknown'
@@ -211,6 +217,8 @@ function convertArrowShapeToFocused(editor: Editor, shape: TLArrowShape): Focuse
 	) as TLArrowBinding[]
 	const startBinding = arrowBindings.find((b) => b.props.terminal === 'start')
 	const endBinding = arrowBindings.find((b) => b.props.terminal === 'end')
+	const fromRow = startBinding ? getBoundTableRow(editor, startBinding) : null
+	const toRow = endBinding ? getBoundTableRow(editor, endBinding) : null
 
 	return {
 		_type: 'arrow',
@@ -221,10 +229,45 @@ function convertArrowShapeToFocused(editor: Editor, shape: TLArrowShape): Focuse
 		shapeId: convertTldrawIdToSimpleId(shape.id),
 		text: (shape.meta.text as string) ?? '',
 		toId: endBinding ? convertTldrawIdToSimpleId(endBinding.toId) : null,
+		...(fromRow !== null ? { fromRow } : null),
+		...(toRow !== null ? { toRow } : null),
 		x1: shape.props.start.x + bounds.x,
 		x2: shape.props.end.x + bounds.x,
 		y1: shape.props.start.y + bounds.y,
 		y2: shape.props.end.y + bounds.y,
+	}
+}
+
+/** If an arrow binding lands on a table's left/right edge at a row, return that row index. */
+function getBoundTableRow(editor: Editor, binding: TLArrowBinding): number | null {
+	const target = editor.getShape(binding.toId)
+	if (!target || target.type !== 'table') return null
+	const p = (target as TLTableShape).props
+	const { x, y } = binding.props.normalizedAnchor
+	return rowAtEdgeAnchor(p, x * p.w, y * p.h)
+}
+
+function convertTableShapeToFocused(editor: Editor, shape: TLTableShape): FocusedTableShape {
+	const bounds = getSimpleBounds(editor, shape)
+	const p = shape.props
+	const round1 = (v: number) => Math.round(v * 10) / 10
+	const monoColumns = p.colMono.flatMap((m, i) => (m ? [i] : []))
+	return {
+		_type: 'table',
+		color: p.color,
+		fill: convertTldrawFillToFocusedFill(p.fill),
+		note: (shape.meta.note as string) ?? '',
+		shapeId: convertTldrawIdToSimpleId(shape.id),
+		x: bounds.x,
+		y: bounds.y,
+		w: p.w,
+		h: p.h,
+		...(p.showTitle ? { title: p.title } : null),
+		headerRow: p.headerRow,
+		rows: p.cells.map((r) => [...r]),
+		colWidths: p.colWidths.map(round1),
+		rowHeights: p.rowHeights.map(round1),
+		...(monoColumns.length ? { monoColumns } : null),
 	}
 }
 

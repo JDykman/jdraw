@@ -1,6 +1,6 @@
 import { createShapeId, defaultHandleExternalTextContent, Editor, TLTextExternalContent } from 'tldraw'
 import { TABLE_DEFAULT_COL_WIDTH, TABLE_DEFAULT_ROW_HEIGHT, TLTableShape } from '../../../shared/table/tableShapeProps'
-import { parseDelimited } from './tableOps'
+import { parseDelimited } from '../../../shared/table/tableOps'
 
 /**
  * Pasting tab/comma-separated text onto the canvas creates a table.

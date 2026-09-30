@@ -46,7 +46,7 @@ import {
 	parseDelimited,
 	setCell,
 	titleHeight,
-} from './tableOps'
+} from '../../../shared/table/tableOps'
 
 const CELL_PADDING = 6
 

@@ -1,6 +1,6 @@
 import { Editor, TLArrowBinding, TLShape } from 'tldraw'
 import { TLTableShape, TLTableShapeProps } from '../../../shared/table/tableShapeProps'
-import { cumulative, titleHeight } from './tableOps'
+import { cumulative, titleHeight } from '../../../shared/table/tableOps'
 
 const EDGE_EPS = 0.5
 

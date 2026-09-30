@@ -1,7 +1,7 @@
 import { Editor, TldrawUiButton, track, useEditor } from 'tldraw'
 import { TLTableShape } from '../../../shared/table/tableShapeProps'
 import { activeTableCell, tableSelection } from './tableEditing'
-import { deleteCol, deleteRow, insertCol, insertRow, toCsv, toMarkdown } from './tableOps'
+import { deleteCol, deleteRow, insertCol, insertRow, toCsv, toMarkdown } from '../../../shared/table/tableOps'
 
 /** The single selected table shape, or null. */
 export function getSelectedTable(editor: Editor): TLTableShape | null {
