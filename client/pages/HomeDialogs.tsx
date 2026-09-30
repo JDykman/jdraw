@@ -1,6 +1,7 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { PageSummary, useApi } from './pagesApi'
+import { PAGE_TEMPLATES, TemplateId } from './templates'
 
 export function Dialog({
 	title,
@@ -48,6 +49,8 @@ export function PromptDialog({
 	label,
 	initialValue = '',
 	submitLabel,
+	placeholder,
+	allowEmpty = false,
 	onSubmit,
 	onClose,
 	children,
@@ -56,6 +59,9 @@ export function PromptDialog({
 	label: string
 	initialValue?: string
 	submitLabel: string
+	placeholder?: string
+	/** Submit an empty value (the caller supplies a default) */
+	allowEmpty?: boolean
 	onSubmit(value: string): Promise<void> | void
 	onClose(): void
 	children?: ReactNode
@@ -70,7 +76,7 @@ export function PromptDialog({
 
 	async function submit(e: FormEvent) {
 		e.preventDefault()
-		if (!value.trim() || busy) return
+		if ((!allowEmpty && !value.trim()) || busy) return
 		setBusy(true)
 		try {
 			await onSubmit(value.trim())
@@ -84,19 +90,110 @@ export function PromptDialog({
 			<form className="home-form" onSubmit={submit}>
 				<label className="home-field">
 					<span>{label}</span>
-					<input ref={inputRef} value={value} onChange={(e) => setValue(e.target.value)} autoFocus />
+					<input
+						ref={inputRef}
+						value={value}
+						placeholder={placeholder}
+						onChange={(e) => setValue(e.target.value)}
+						autoFocus
+					/>
 				</label>
 				{children}
 				<div className="home-dialog-actions">
 					<button type="button" className="home-btn" onClick={onClose}>
 						Cancel
 					</button>
-					<button type="submit" className="home-btn home-btn--primary" disabled={!value.trim() || busy}>
+					<button type="submit" className="home-btn home-btn--primary" disabled={(!allowEmpty && !value.trim()) || busy}>
 						{submitLabel}
 					</button>
 				</div>
 			</form>
 		</Dialog>
+	)
+}
+
+export function NewPageDialog({
+	onCreate,
+	onClose,
+}: {
+	onCreate(name: string, template: TemplateId): Promise<void>
+	onClose(): void
+}) {
+	const [template, setTemplate] = useState<TemplateId>('blank')
+	const suggested = PAGE_TEMPLATES.find((t) => t.id === template)!.name
+	return (
+		<PromptDialog
+			title="New page"
+			label="Name"
+			submitLabel="Create"
+			initialValue=""
+			placeholder={template === 'blank' ? 'Untitled' : suggested}
+			allowEmpty
+			onClose={onClose}
+			onSubmit={(name) => onCreate(name || (template === 'blank' ? 'Untitled' : suggested), template)}
+		>
+			<fieldset className="home-templates">
+				<legend>Start from</legend>
+				{PAGE_TEMPLATES.map((t) => (
+					<label key={t.id} className="home-template">
+						<input
+							type="radio"
+							name="template"
+							value={t.id}
+							checked={template === t.id}
+							onChange={() => setTemplate(t.id)}
+						/>
+						<TemplatePreview id={t.id} />
+						<span className="home-template-name">{t.name}</span>
+						<span className="home-template-desc">{t.description}</span>
+					</label>
+				))}
+			</fieldset>
+		</PromptDialog>
+	)
+}
+
+/** Tiny schematic of each template for the picker. */
+function TemplatePreview({ id }: { id: TemplateId }) {
+	const stroke = 'currentColor'
+	return (
+		<svg className="home-template-preview" viewBox="0 0 64 40" aria-hidden="true">
+			{id === 'blank' && <rect x="6" y="5" width="52" height="30" rx="3" fill="none" stroke={stroke} strokeDasharray="3 3" />}
+			{id === 'flowchart' && (
+				<g fill="none" stroke={stroke} strokeWidth="1.5">
+					<rect x="24" y="3" width="16" height="8" rx="4" />
+					<path d="M32 11v5M32 16l7 5-7 5-7-5z M32 26v5" />
+					<rect x="24" y="31" width="16" height="7" rx="1" />
+				</g>
+			)}
+			{id === 'er' && (
+				<g fill="none" stroke={stroke} strokeWidth="1.5">
+					<rect x="4" y="6" width="22" height="28" rx="1" />
+					<path d="M4 12h22M4 18h22M4 24h22" />
+					<rect x="38" y="10" width="22" height="22" rx="1" />
+					<path d="M38 16h22M38 22h22M26 21h12" />
+				</g>
+			)}
+			{(id === 'retro' || id === 'kanban') && (
+				<g>
+					{[0, 1, 2].map((i) => (
+						<g key={i}>
+							<rect x={4 + i * 20} y="4" width="16" height="32" rx="1" fill="none" stroke={stroke} strokeWidth="1.2" />
+							<rect
+								x={7 + i * 20}
+								y="8"
+								width="10"
+								height="8"
+								fill={id === 'retro' ? ['#7ec87e', '#f0a05a', '#6fa8f0'][i] : ['#f5d14f', '#6fa8f0', '#7ec87e'][i]}
+							/>
+							{i !== 2 && (
+								<rect x={7 + i * 20} y="19" width="10" height="8" fill={id === 'retro' ? ['#7ec87e', '#f0a05a'][i] : ['#f5d14f', '#6fa8f0'][i]} />
+							)}
+						</g>
+					))}
+				</g>
+			)}
+		</svg>
 	)
 }
 

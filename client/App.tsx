@@ -32,6 +32,7 @@ import { ChatPanel } from './components/ChatPanel'
 import { ChatPanelFallback } from './components/ChatPanelFallback'
 import { CustomHelperButtons } from './components/CustomHelperButtons'
 import { PageThumbnailSync } from './pages/PageThumbnailSync'
+import { TemplateApplier } from './pages/TemplateApplier'
 import { AgentViewportBoundsHighlights } from './components/highlights/AgentViewportBoundsHighlights'
 import { AllContextHighlights } from './components/highlights/ContextHighlights'
 import { TargetAreaTool } from './tools/TargetAreaTool'
@@ -266,6 +267,7 @@ function App({ pageId, onBack }: AppProps) {
 					<TldrawAgentAppProvider pageId={pageId} onMount={setApp} onUnmount={handleUnmount} />
 					<TableToolbar />
 					<PageThumbnailSync pageId={pageId} />
+					<TemplateApplier pageId={pageId} />
 				</>
 			),
 		}),

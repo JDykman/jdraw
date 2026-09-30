@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { ApiKeysSettings } from '../components/ApiKeysSettings'
-import { PromptDialog, ShareDialog, TagsDialog } from './HomeDialogs'
+import { NewPageDialog, PromptDialog, ShareDialog, TagsDialog } from './HomeDialogs'
 import { PageCard, PageCardActions } from './PageCard'
 import { hasUnseenEdits, PageSummary, usePages } from './pagesApi'
+import { setPendingTemplate } from './templates'
 import './home.css'
 
 type SortKey = 'recent' | 'name' | 'owner' | 'created'
@@ -278,13 +279,11 @@ export function HomePage({ onSelect }: { onSelect(pageId: string): void }) {
 			</main>
 
 			{dialog?.type === 'new' && (
-				<PromptDialog
-					title="New page"
-					label="Name"
-					submitLabel="Create"
+				<NewPageDialog
 					onClose={() => setDialog(null)}
-					onSubmit={async (name) => {
+					onCreate={async (name, template) => {
 						const created = await api<{ id: string }>('/pages', { method: 'POST', json: { name } })
+						setPendingTemplate(created.id, template)
 						setDialog(null)
 						onSelect(created.id)
 					}}
