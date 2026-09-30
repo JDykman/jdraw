@@ -31,6 +31,10 @@ import { useAuth } from './auth/AuthContext'
 import { ChatPanel } from './components/ChatPanel'
 import { ChatPanelFallback } from './components/ChatPanelFallback'
 import { CustomHelperButtons } from './components/CustomHelperButtons'
+import { CollabBar, ReactionsOverlay } from './collab/CollabBar'
+import { getPresenceWithReaction } from './collab/reactions'
+import { PageThumbnailSync } from './pages/PageThumbnailSync'
+import { TemplateApplier } from './pages/TemplateApplier'
 import { AgentViewportBoundsHighlights } from './components/highlights/AgentViewportBoundsHighlights'
 import { AllContextHighlights } from './components/highlights/ContextHighlights'
 import { TargetAreaTool } from './tools/TargetAreaTool'
@@ -251,7 +255,7 @@ function App({ pageId, onBack }: AppProps) {
 		[]
 	)
 
-	const store = useSync({ uri: wsUri, userInfo, assets, shapeUtils })
+	const store = useSync({ uri: wsUri, userInfo, assets, shapeUtils, getUserPresence: getPresenceWithReaction })
 
 	const components: TLComponents = useMemo(
 		() => ({
@@ -260,10 +264,16 @@ function App({ pageId, onBack }: AppProps) {
 			LoadingScreen,
 			Toolbar,
 			ContextMenu: TableContextMenu,
+			TopPanel: CollabBar,
+			// The collab bar lists people and handles follow; tldraw's people menu would duplicate it
+			SharePanel: null,
 			InFrontOfTheCanvas: () => (
 				<>
 					<TldrawAgentAppProvider pageId={pageId} onMount={setApp} onUnmount={handleUnmount} />
 					<TableToolbar />
+					<PageThumbnailSync pageId={pageId} />
+					<TemplateApplier pageId={pageId} />
+					<ReactionsOverlay />
 				</>
 			),
 		}),

@@ -5,6 +5,7 @@ import { createServer } from 'http'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { fileURLToPath } from 'url'
+import { startBackupSchedule } from './db/backup.js'
 import { db } from './db/db.js'
 import { authMiddleware } from './middleware/auth.js'
 import agentStateRouter from './routes/agentState.js'
@@ -43,6 +44,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 await bootstrapAdmin()
+startBackupSchedule()
 
 const app = express()
 app.use(express.json({ limit: '10mb' }))

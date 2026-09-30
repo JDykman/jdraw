@@ -79,6 +79,7 @@ export function attachWebSocketHandler(httpServer: Server) {
 				sessionId,
 				socket: ws as any,
 				isReadonly: !canEdit,
+				meta: { userId: user.id, canEdit },
 			})
 
 			recordConnection(pageId)

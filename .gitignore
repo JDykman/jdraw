@@ -10,4 +10,4 @@ jdraw.db
 *.db-shm
 *.db-wal
 .worktrees/
-docs/
+docs/backups/

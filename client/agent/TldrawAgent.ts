@@ -1,6 +1,6 @@
 import { Editor, RecordsDiff, reverseRecordsDiff, structuredClone, TLRecord } from 'tldraw'
 import { convertTldrawShapeToFocusedShape } from '../../shared/format/convertTldrawShapeToFocusedShape'
-import { AgentModelName } from '../../shared/models'
+import { AgentModelName, isValidModelName } from '../../shared/models'
 import { AgentAction } from '../../shared/types/AgentAction'
 import { AgentInput } from '../../shared/types/AgentInput'
 import { AgentPrompt, BaseAgentPrompt } from '../../shared/types/AgentPrompt'
@@ -25,6 +25,7 @@ import { AgentModeManager } from './managers/AgentModeManager'
 import { AgentModelNameManager } from './managers/AgentModelNameManager'
 import { AgentRequestManager } from './managers/AgentRequestManager'
 import { AgentTodoManager } from './managers/AgentTodoManager'
+import { AgentUsageManager } from './managers/AgentUsageManager'
 import { AgentUserActionTracker } from './managers/AgentUserActionTracker'
 
 /**
@@ -105,6 +106,9 @@ export class TldrawAgent {
 	/** The user action tracker associated with this agent. */
 	userAction: AgentUserActionTracker
 
+	/** Token usage and estimated cost for this chat. */
+	usage: AgentUsageManager
+
 	// ==================== Prompt Part Utils ====================
 
 	/**
@@ -144,6 +148,7 @@ export class TldrawAgent {
 		this.requests = new AgentRequestManager(this)
 		this.todos = new AgentTodoManager(this)
 		this.userAction = new AgentUserActionTracker(this)
+		this.usage = new AgentUsageManager(this)
 
 		// Note: Agent registration is handled by AgentAppAgentsManager.createAgent()
 
@@ -190,7 +195,8 @@ export class TldrawAgent {
 		if (state.contextItems) {
 			this.context.setItems(state.contextItems)
 		}
-		if (state.modelName) {
+		// Saved state may reference a model that has since been removed from the list
+		if (isValidModelName(state.modelName)) {
 			this.modelName.setModelName(state.modelName)
 		}
 		if (state.debugFlags) {
@@ -216,6 +222,7 @@ export class TldrawAgent {
 		this.modelName.dispose()
 		this.requests.dispose()
 		this.todos.dispose()
+		this.usage.dispose()
 
 		// Note: Agent removal from registry is handled by AgentAppAgentsManager.deleteAgent()
 	}
@@ -313,6 +320,7 @@ export class TldrawAgent {
 		}
 
 		this.requests.setIsPrompting(true)
+		if (!nested) this.usage.startPrompt()
 
 		const request = this.requests.getFullRequestFromInput(input)
 		const startingNode = this.mode.getCurrentModeNode()
@@ -549,6 +557,7 @@ export class TldrawAgent {
 		this.requests.reset()
 		this.todos.reset()
 		this.userAction.reset()
+		this.usage.reset()
 	}
 
 	// ==================== Request Helpers ====================
@@ -748,6 +757,12 @@ export class TldrawAgent {
 							// If the response contains an error, throw it
 							if ('error' in data) {
 								throw new Error(data.error)
+							}
+
+							// Token usage for the cost meter arrives as its own event after the actions
+							if ('usage' in data) {
+								this.usage.record(data.usage)
+								continue
 							}
 
 							const agentAction: Streaming<AgentAction> = data

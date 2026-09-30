@@ -2,7 +2,7 @@ import { Component, ReactNode, useCallback, useEffect, useState } from 'react'
 import App from './App'
 import { useAuth } from './auth/AuthContext'
 import { LoginPage } from './auth/LoginPage'
-import { PageListSidebar } from './pages/PageListSidebar'
+import { HomePage } from './pages/HomePage'
 
 function getCurrentPageStorageKey(userId: string) {
 	return `jdraw:currentPageId:${userId}`
@@ -78,7 +78,7 @@ export function AppRouter() {
 	}
 
 	if (!currentPageId) {
-		return <PageListSidebar onSelect={handleSelectPage} />
+		return <HomePage onSelect={handleSelectPage} />
 	}
 
 	return (

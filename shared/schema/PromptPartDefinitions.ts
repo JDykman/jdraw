@@ -374,11 +374,22 @@ export const DataPartDefinition: PromptPartDefinition<DataPart> = {
 	buildContent: ({ data }) => {
 		if (data.length === 0) return []
 
-		const formattedData = data.map((item) => {
-			return `${JSON.stringify(item)}`
-		})
+		// Images the user attached in chat travel as data URLs and are sent as real images
+		const isImage = (item: unknown): item is string => typeof item === 'string' && item.startsWith('data:image/')
+		const images = data.filter(isImage)
+		const rest = data.filter((item) => !isImage(item))
 
-		return ["Here's the data you requested:", ...formattedData]
+		const content: string[] = []
+		if (images.length > 0) {
+			content.push(
+				images.length === 1 ? 'The user attached this image:' : `The user attached these ${images.length} images:`,
+				...images
+			)
+		}
+		if (rest.length > 0) {
+			content.push("Here's the data you requested:", ...rest.map((item) => JSON.stringify(item)))
+		}
+		return content
 	},
 }
 

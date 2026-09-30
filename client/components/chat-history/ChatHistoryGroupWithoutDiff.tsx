@@ -106,6 +106,30 @@ function ChatHistoryItemExpanded({ action }: { action: Streaming<AgentAction> })
 			<span className="agent-action-description">
 				<Markdown>{description}</Markdown>
 			</span>
+			{action._type === 'message' && action.complete && action.text && <CopyButton text={action.text} />}
 		</div>
+	)
+}
+
+/** Copy an agent message's Markdown, e.g. an /explain summary for a PR or doc. */
+function CopyButton({ text }: { text: string }) {
+	const [copied, setCopied] = useState(false)
+	return (
+		<button
+			className="agent-message-copy"
+			title="Copy as Markdown"
+			aria-label="Copy message as Markdown"
+			onClick={async () => {
+				try {
+					await navigator.clipboard.writeText(text)
+					setCopied(true)
+					setTimeout(() => setCopied(false), 1500)
+				} catch {
+					// Clipboard blocked; nothing useful to do
+				}
+			}}
+		>
+			{copied ? '✓' : '⧉'}
+		</button>
 	)
 }

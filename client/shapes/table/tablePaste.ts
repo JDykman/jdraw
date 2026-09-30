@@ -1,6 +1,7 @@
 import { createShapeId, defaultHandleExternalTextContent, Editor, TLTextExternalContent } from 'tldraw'
 import { TABLE_DEFAULT_COL_WIDTH, TABLE_DEFAULT_ROW_HEIGHT, TLTableShape } from '../../../shared/table/tableShapeProps'
 import { parseDelimited } from '../../../shared/table/tableOps'
+import { tryInsertDiagramText } from '../../diagram/importText'
 
 /**
  * Pasting tab/comma-separated text onto the canvas creates a table.
@@ -8,6 +9,8 @@ import { parseDelimited } from '../../../shared/table/tableOps'
  */
 export function registerTablePasteHandler(editor: Editor) {
 	editor.registerExternalContentHandler('text', async (content: TLTextExternalContent) => {
+		// Mermaid / SQL DDL / docker-compose become diagrams rather than a text blob or a table
+		if (tryInsertDiagramText(editor, content.text, content.point)) return
 		const grid = parseDelimited(content.text)
 		if (!grid) {
 			await defaultHandleExternalTextContent(editor, content)

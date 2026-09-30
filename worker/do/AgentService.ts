@@ -2,7 +2,7 @@ import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI, GoogleGenerativeAIProvider } from '@ai-sdk/google'
 import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai'
 import { LanguageModel, ModelMessage, streamText } from 'ai'
-import { AgentModelName, getAgentModelDefinition, isValidModelName } from '../../shared/models'
+import { AgentModelName, AgentUsage, getAgentModelDefinition, isValidModelName } from '../../shared/models'
 import { DebugPart } from '../../shared/schema/PromptPartDefinitions'
 import { AgentAction } from '../../shared/types/AgentAction'
 import { AgentPrompt } from '../../shared/types/AgentPrompt'
@@ -17,6 +17,9 @@ export class AgentService {
 	openai: OpenAIProvider
 	anthropic: AnthropicProvider
 	google: GoogleGenerativeAIProvider
+
+	/** Token usage of the most recent completed stream (for the client's cost meter) */
+	lastUsage: AgentUsage | null = null
 
 	constructor(env: Environment) {
 		this.openai = createOpenAI({ apiKey: env.OPENAI_API_KEY })
@@ -94,11 +97,19 @@ export class AgentService {
 			}
 		}
 
+		// Newer Claude models reject assistant prefill, so they have to produce the opening
+		// of the JSON themselves (see stripToJson below).
+		const isModernAnthropic = !!modelDefinition.modernAnthropic
+		const canForceResponseStart =
+			(provider === 'anthropic.messages' && !isModernAnthropic) || provider === 'google.generative-ai'
+
 		// Add the assistant message to indicate the start of the actions
-		messages.push({
-			role: 'assistant',
-			content: '{"actions": [{"_type":',
-		})
+		if (canForceResponseStart) {
+			messages.push({
+				role: 'assistant',
+				content: '{"actions": [{"_type":',
+			})
+		}
 
 		// Configure thinking budgets based on model. We let models think using the think action, so we keep this as low as possible to minimize time to first token
 		// Gemini: 256 for thinking models, 0 otherwise
@@ -108,15 +119,17 @@ export class AgentService {
 		const openaiReasoningEffort = provider === 'openai.responses' ? 'none' : 'minimal'
 
 		try {
-			const { textStream } = streamText({
+			const result = streamText({
 				model,
 				messages,
 				maxOutputTokens: 8192,
-				temperature: 0,
+				// Modern Claude models reject sampling params and can't disable thinking; low
+				// effort keeps time-to-first-action short since the agent has its own think action.
+				temperature: isModernAnthropic ? undefined : 0,
 				providerOptions: {
-					anthropic: {
-						thinking: { type: 'disabled' },
-					},
+					anthropic: isModernAnthropic
+						? { thinking: { type: 'adaptive' }, effort: 'low' }
+						: { thinking: { type: 'disabled' } },
 					google: {
 						thinkingConfig: { thinkingBudget: geminiThinkingBudget },
 					},
@@ -135,8 +148,7 @@ export class AgentService {
 				},
 			})
 
-			const canForceResponseStart =
-				provider === 'anthropic.messages' || provider === 'google.generative-ai'
+			const { textStream } = result
 			let buffer = canForceResponseStart ? '{"actions": [{"_type":' : ''
 			let cursor = 0
 			let maybeIncompleteAction: AgentAction | null = null
@@ -145,7 +157,7 @@ export class AgentService {
 			for await (const text of textStream) {
 				buffer += text
 
-				const partialObject = closeAndParseJson(buffer)
+				const partialObject = closeAndParseJson(canForceResponseStart ? buffer : stripToJson(buffer))
 				if (!partialObject) continue
 
 				const actions = partialObject.actions
@@ -187,6 +199,8 @@ export class AgentService {
 				}
 			}
 
+			this.lastUsage = await readUsage(result, modelId).catch(() => null)
+
 			// If we've finished receiving events, but there's still an incomplete event, we need to complete it
 			if (maybeIncompleteAction) {
 				yield {
@@ -199,5 +213,29 @@ export class AgentService {
 			console.error('streamActions error:', error)
 			throw error
 		}
+	}
+}
+
+/**
+ * Without prefill, a model may emit a preamble or a ```json fence before the object.
+ * Drop everything before the first `{` so the partial parser sees only JSON.
+ */
+function stripToJson(text: string): string {
+	const start = text.indexOf('{')
+	return start === -1 ? '' : text.slice(start)
+}
+
+async function readUsage(result: ReturnType<typeof streamText>, modelName: string): Promise<AgentUsage> {
+	const [usage, metadata] = await Promise.all([result.usage, result.providerMetadata])
+	const cacheRead = usage.cachedInputTokens ?? 0
+	const anthropicWrite = metadata?.anthropic?.cacheCreationInputTokens
+	const isAnthropic = metadata?.anthropic !== undefined
+	return {
+		modelName,
+		// Anthropic reports uncached input separately; other providers include cached tokens in inputTokens
+		inputTokens: Math.max(0, (usage.inputTokens ?? 0) - (isAnthropic ? 0 : cacheRead)),
+		outputTokens: usage.outputTokens ?? 0,
+		cacheReadTokens: cacheRead,
+		cacheWriteTokens: typeof anthropicWrite === 'number' ? anthropicWrite : 0,
 	}
 }
