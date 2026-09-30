@@ -27,6 +27,7 @@ import {
 	TldrawAgentAppProvider,
 	useTldrawAgentAppFromEditor,
 } from './agent/TldrawAgentAppProvider'
+import { SNAPSHOT_LOAD_FAILED_REASON } from '../shared/sync/closeReasons'
 import { useAuth } from './auth/AuthContext'
 import { ChatPanel } from './components/ChatPanel'
 import { ChatPanelFallback } from './components/ChatPanelFallback'
@@ -177,6 +178,33 @@ function BackToPagesButton({ onBack, editor }: { onBack: () => void; editor: any
 	)
 }
 
+/**
+ * Shown instead of the canvas when the sync connection is rejected for good. The server closes
+ * with a fatal code when a page's stored snapshot can't be loaded (the data is quarantined, not
+ * lost), so retrying would be pointless.
+ */
+function PageLoadError({ error, onBack }: { error: Error; onBack?: () => void }) {
+	const reason = (error as { reason?: string }).reason
+	const loadFailed = reason === SNAPSHOT_LOAD_FAILED_REASON
+	return (
+		<div className="page-load-error" role="alert">
+			<h2>{loadFailed ? 'This page couldn\u2019t be loaded.' : 'Couldn\u2019t connect to this page.'}</h2>
+			<p>
+				{loadFailed
+					? 'Your data was preserved. The stored version was set aside because it failed to load.'
+					: reason ?? error.message}
+			</p>
+			<div className="page-load-error-actions">
+				{onBack && (
+					<button className="page-load-error-button" onClick={onBack}>
+						Back
+					</button>
+				)}
+			</div>
+		</div>
+	)
+}
+
 interface AppProps {
 	pageId: string
 	onBack?(): void
@@ -279,6 +307,10 @@ function App({ pageId, onBack }: AppProps) {
 		}),
 		[pageId, handleUnmount]
 	)
+
+	if (store.status === 'error') {
+		return <PageLoadError error={store.error} onBack={onBack} />
+	}
 
 	return (
 		<TldrawUiToastsProvider>

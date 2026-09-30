@@ -74,3 +74,16 @@ CREATE TABLE IF NOT EXISTS page_thumbnails (
 );
 
 CREATE INDEX IF NOT EXISTS idx_page_tags_tag ON page_tags(tag);
+
+-- Page version history. Also holds quarantined raw text when a stored snapshot fails to load.
+CREATE TABLE IF NOT EXISTS page_checkpoints (
+    id          TEXT PRIMARY KEY,
+    page_id     TEXT NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+    kind        TEXT NOT NULL,          -- 'auto' | 'manual' | 'pre-restore' | 'quarantine'
+    label       TEXT,
+    snapshot    TEXT NOT NULL,          -- RoomSnapshot JSON (or raw text for quarantine)
+    doc_clock   INTEGER,                -- room.getCurrentDocumentClock() at capture
+    created_by  TEXT REFERENCES users(id) ON DELETE SET NULL,
+    created_at  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_checkpoints_page ON page_checkpoints(page_id, created_at DESC);

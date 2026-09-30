@@ -989,6 +989,56 @@ button.prompt-tag span {
 	color: #666;
 }
 
+/* Page failed to load (sync connection rejected for good) */
+.page-load-error {
+	position: fixed;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 24px;
+	text-align: center;
+	color: #333;
+	background: #f5f5f5;
+}
+.page-load-error h2 {
+	margin: 0;
+	font-size: 20px;
+}
+.page-load-error p {
+	margin: 0;
+	max-width: 420px;
+	color: #666;
+}
+.page-load-error-actions {
+	display: flex;
+	gap: 8px;
+	margin-top: 12px;
+}
+.page-load-error-button {
+	height: 34px;
+	padding: 0 16px;
+	border: 1px solid #ccc;
+	border-radius: 8px;
+	background: #fff;
+	color: #222;
+	font-size: 14px;
+	cursor: pointer;
+}
+.page-load-error-button:hover {
+	background: #eee;
+}
+.page-load-error-button--primary {
+	background: #2f80ed;
+	border-color: #2f80ed;
+	color: #fff;
+}
+.page-load-error-button--primary:hover {
+	background: #2569c7;
+}
+
 /* Login Page */
 .login-page {
 	position: fixed;

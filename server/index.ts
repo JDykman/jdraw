@@ -15,7 +15,7 @@ import pagesRouter from './routes/pages.js'
 import streamRouter from './routes/stream.js'
 import usersRouter from './routes/users.js'
 import { attachWebSocketHandler } from './sync/wsHandler.js'
-import { persistAllRooms } from './sync/roomManager.js'
+import { shutdownRooms } from './sync/roomManager.js'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const PORT = Number(process.env.PORT ?? 3001)
@@ -73,11 +73,20 @@ if (IS_PROD) {
 const httpServer = createServer(app)
 attachWebSocketHandler(httpServer)
 
-process.on('SIGTERM', () => {
-	persistAllRooms()
+let shuttingDown = false
+function shutdown(signal: string) {
+	if (shuttingDown) return
+	shuttingDown = true
+	console.log(`${signal} received, persisting rooms and shutting down`)
+	// Flushes pending change timers and closes every room before the database closes
+	shutdownRooms()
 	db.close()
 	httpServer.close(() => process.exit(0))
-})
+	// Open sockets can keep close() from calling back; don't hang forever
+	setTimeout(() => process.exit(0), 5_000).unref()
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
 
 httpServer.listen(PORT, () => {
 	console.log(`jdraw server running on http://localhost:${PORT}`)
