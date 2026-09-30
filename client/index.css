@@ -1436,3 +1436,30 @@ button.prompt-tag span {
 	background: var(--tl-color-selected);
 	opacity: 0.35;
 }
+
+/* Table row/column gutter tabs */
+.table-gutter {
+	background: var(--tl-color-muted-2, rgba(0, 0, 0, 0.08));
+	opacity: 0.6;
+}
+.table-gutter:hover {
+	opacity: 1;
+	background: var(--tl-color-selected);
+}
+.table-gutter.selected {
+	opacity: 1;
+	background: var(--tl-color-selected);
+}
+.table-drop-indicator {
+	background: var(--tl-color-selected);
+	pointer-events: none;
+}
+.table-toolbar .tlui-button[data-active='true'] {
+	background: var(--tl-color-selected-contrast);
+	color: var(--tl-color-selected);
+}
+.table-toolbar-sep {
+	width: 1px;
+	margin: 6px 4px;
+	background: var(--tl-color-divider);
+}

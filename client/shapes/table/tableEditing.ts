@@ -12,3 +12,12 @@ export interface ActiveTableCell {
  * rows/cols relative to the cursor.
  */
 export const activeTableCell = atom<ActiveTableCell | null>('activeTableCell', null)
+
+export interface TableSelection {
+	shapeId: TLShapeId
+	kind: 'row' | 'col'
+	index: number
+}
+
+/** Whole row/column selected via the gutter tabs. Local UI state. */
+export const tableSelection = atom<TableSelection | null>('tableSelection', null)

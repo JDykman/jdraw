@@ -29,7 +29,8 @@ import {
 	TLTableShape,
 	TLTableShapeProps,
 } from '../../../shared/table/tableShapeProps'
-import { activeTableCell } from './tableEditing'
+import { activeTableCell, tableSelection } from './tableEditing'
+import { InlineText, parseInline } from './inlineMarkdown'
 import {
 	cellAtPoint,
 	cumulative,
@@ -39,6 +40,8 @@ import {
 	fitTableTo,
 	insertCol,
 	insertRow,
+	moveCol,
+	moveRow,
 	normalizeTable,
 	parseDelimited,
 	setCell,
@@ -64,6 +67,8 @@ export class TableShapeUtil extends ShapeUtil<TLTableShape> {
 			headerRow: true,
 			title: '',
 			showTitle: false,
+			colAlign: Array(cols).fill(null),
+			colMono: Array(cols).fill(false),
 			color: 'black',
 			fill: 'none',
 			size: 's',
@@ -93,7 +98,11 @@ export class TableShapeUtil extends ShapeUtil<TLTableShape> {
 
 	override getFontFaces(shape: TLTableShape) {
 		const fam = DefaultFontFaces[`tldraw_${shape.props.font}`]
-		return [fam.normal.normal, fam.normal.bold]
+		const faces = [fam.normal.normal, fam.normal.bold, fam.italic.normal]
+		if (shape.props.colMono.some(Boolean) || shape.props.cells.some((r) => r.some((c) => c.includes('`')))) {
+			faces.push(DefaultFontFaces.tldraw_mono.normal.normal)
+		}
+		return faces
 	}
 
 	// ---- Invariants -------------------------------------------------------
@@ -153,10 +162,15 @@ export class TableShapeUtil extends ShapeUtil<TLTableShape> {
 		const th = titleHeight(shape.props)
 		const cx = cumulative(colWidths)
 		const cy = cumulative(rowHeights).map((v) => v + th)
-		const align = shape.props.textAlign
-		const anchor = align === 'middle' ? 'middle' : align === 'end' ? 'end' : 'start'
-		const xFor = (c: number) =>
-			align === 'middle' ? cx[c] + colWidths[c] / 2 : align === 'end' ? cx[c + 1] - CELL_PADDING : cx[c] + CELL_PADDING
+		const alignFor = (c: number) => shape.props.colAlign[c] ?? shape.props.textAlign
+		const anchorFor = (c: number) => {
+			const a = alignFor(c)
+			return a === 'middle' ? 'middle' : a === 'end' ? 'end' : 'start'
+		}
+		const xFor = (c: number) => {
+			const a = alignFor(c)
+			return a === 'middle' ? cx[c] + colWidths[c] / 2 : a === 'end' ? cx[c + 1] - CELL_PADDING : cx[c] + CELL_PADDING
+		}
 
 		return (
 			<g>
@@ -181,20 +195,31 @@ export class TableShapeUtil extends ShapeUtil<TLTableShape> {
 						if (!text) return null
 						const isHeader = headerRow && r === 0
 						const x = xFor(c)
+						const mono = shape.props.colMono[c]
 						return (
 							<text
 								key={`${r}-${c}`}
 								x={x}
 								y={cy[r] + CELL_PADDING + s.fontSize * 0.9}
-								fontFamily={s.exportFontFamily}
+								fontFamily={mono ? s.exportMonoFamily : s.exportFontFamily}
 								fontSize={s.fontSize}
 								fontWeight={isHeader ? 'bold' : 'normal'}
 								fill={isHeader ? s.headerText : s.text}
-								textAnchor={anchor}
+								textAnchor={anchorFor(c)}
 							>
 								{text.split('\n').map((l, i) => (
 									<tspan key={i} x={x} dy={i === 0 ? 0 : s.fontSize * 1.35}>
-										{l}
+										{parseInline(l).map((run, k) => (
+											<tspan
+												key={k}
+												fontWeight={run.bold || isHeader ? 'bold' : undefined}
+												fontStyle={run.italic ? 'italic' : undefined}
+												textDecoration={run.strike ? 'line-through' : undefined}
+												fontFamily={run.code ? s.exportMonoFamily : undefined}
+											>
+												{run.text}
+											</tspan>
+										))}
 									</tspan>
 								))}
 							</text>
@@ -219,6 +244,8 @@ function getStyle(props: TLTableShapeProps, theme: TLDefaultColorTheme) {
 		fontFamily: FONT_FAMILIES[props.font],
 		/** Font family name tldraw embeds in SVG exports (CSS vars don't resolve there). */
 		exportFontFamily: `tldraw_${props.font}`,
+		monoFamily: FONT_FAMILIES.mono,
+		exportMonoFamily: 'tldraw_mono',
 		text: theme.text,
 		bodyBg: filled ? c.semi : 'transparent',
 		headerBg: filled ? c.solid : c.semi,
@@ -336,6 +363,140 @@ function DividerStrips({ shape }: { shape: TLTableShape }) {
 	)
 }
 
+/**
+ * Spreadsheet-style tabs outside the table: one above each column, one left of each row.
+ * Click selects the whole column/row (highlighted; toolbar ops and Delete act on it).
+ * Drag a tab to reorder.
+ */
+function GutterTabs({ shape, selection }: { shape: TLTableShape; selection: { kind: 'row' | 'col'; index: number } | null }) {
+	const editor = useEditor()
+	const zoom = useValue('zoom', () => editor.getZoomLevel(), [editor])
+	const [dropIndex, setDropIndex] = React.useState<{ kind: 'row' | 'col'; index: number } | null>(null)
+	const { w, h, colWidths, rowHeights } = shape.props
+	const th = titleHeight(shape.props)
+	const cx = cumulative(colWidths)
+	const cy = cumulative(rowHeights).map((v) => v + th)
+	const size = Math.max(8, 14 / zoom)
+	const gap = Math.max(2, 3 / zoom)
+
+	const startDrag = (e: React.PointerEvent, kind: 'row' | 'col', index: number) => {
+		if (e.button !== 0) return
+		e.stopPropagation()
+		e.preventDefault()
+		tableSelection.set({ shapeId: shape.id, kind, index })
+		const el = e.currentTarget as HTMLElement
+		el.setPointerCapture(e.pointerId)
+		let target = index
+		const onMove = (ev: PointerEvent) => {
+			const cur = editor.getShape<TLTableShape>(shape.id)
+			if (!cur) return
+			const p = editor.getPointInShapeSpace(cur, editor.screenToPage({ x: ev.clientX, y: ev.clientY }))
+			if (kind === 'col') {
+				const c = cumulative(cur.props.colWidths)
+				// index of the column whose centre is nearest the pointer
+				let t = cur.props.colWidths.length - 1
+				for (let i = 0; i < cur.props.colWidths.length; i++) {
+					if (p.x < c[i] + cur.props.colWidths[i] / 2) {
+						t = i
+						break
+					}
+				}
+				target = t
+			} else {
+				const c = cumulative(cur.props.rowHeights)
+				const y = p.y - titleHeight(cur.props)
+				let t = cur.props.rowHeights.length - 1
+				for (let i = 0; i < cur.props.rowHeights.length; i++) {
+					if (y < c[i] + cur.props.rowHeights[i] / 2) {
+						t = i
+						break
+					}
+				}
+				target = t
+			}
+			setDropIndex(target === index ? null : { kind, index: target })
+		}
+		const onUp = (ev: PointerEvent) => {
+			el.removeEventListener('pointermove', onMove)
+			el.removeEventListener('pointerup', onUp)
+			el.removeEventListener('pointercancel', onUp)
+			try {
+				el.releasePointerCapture(ev.pointerId)
+			} catch {
+				/* noop */
+			}
+			setDropIndex(null)
+			if (target !== index) {
+				const cur = editor.getShape<TLTableShape>(shape.id)
+				if (!cur) return
+				editor.markHistoryStoppingPoint('table reorder')
+				editor.updateShape({
+					id: cur.id,
+					type: 'table',
+					props: kind === 'col' ? moveCol(cur.props, index, target) : moveRow(cur.props, index, target),
+				})
+				tableSelection.set({ shapeId: shape.id, kind, index: target })
+			}
+		}
+		el.addEventListener('pointermove', onMove)
+		el.addEventListener('pointerup', onUp)
+		el.addEventListener('pointercancel', onUp)
+	}
+
+	const tab: React.CSSProperties = {
+		position: 'absolute',
+		pointerEvents: 'all',
+		touchAction: 'none',
+		borderRadius: 2 / zoom,
+		cursor: 'grab',
+	}
+
+	return (
+		<>
+			{colWidths.map((cw, i) => (
+				<div
+					key={`ct${i}`}
+					className={`table-gutter${selection?.kind === 'col' && selection.index === i ? ' selected' : ''}`}
+					style={{ ...tab, left: cx[i] + gap / 2, top: -size - gap, width: cw - gap, height: size }}
+					onPointerDown={(e) => startDrag(e, 'col', i)}
+				/>
+			))}
+			{rowHeights.map((rh, i) => (
+				<div
+					key={`rt${i}`}
+					className={`table-gutter${selection?.kind === 'row' && selection.index === i ? ' selected' : ''}`}
+					style={{ ...tab, left: -size - gap, top: cy[i] + gap / 2, width: size, height: rh - gap }}
+					onPointerDown={(e) => startDrag(e, 'row', i)}
+				/>
+			))}
+			{dropIndex?.kind === 'col' && (
+				<div
+					className="table-drop-indicator"
+					style={{
+						position: 'absolute',
+						left: (dropIndex.index > (selection?.index ?? -1) ? cx[dropIndex.index + 1] : cx[dropIndex.index]) - 1.5 / zoom,
+						top: -size - gap,
+						width: 3 / zoom,
+						height: h + size + gap,
+					}}
+				/>
+			)}
+			{dropIndex?.kind === 'row' && (
+				<div
+					className="table-drop-indicator"
+					style={{
+						position: 'absolute',
+						left: -size - gap,
+						top: (dropIndex.index > (selection?.index ?? -1) ? cy[dropIndex.index + 1] : cy[dropIndex.index]) - 1.5 / zoom,
+						width: w + size + gap,
+						height: 3 / zoom,
+					}}
+				/>
+			)}
+		</>
+	)
+}
+
 function GridLines({
 	w,
 	h,
@@ -376,6 +537,9 @@ function TableComponent({ shape }: { shape: TLTableShape }) {
 		() => editor.getOnlySelectedShapeId() === shape.id && editor.getCurrentToolId() === 'select',
 		[editor, shape.id]
 	)
+	useEffect(() => {
+		if (!isSoleSelection && tableSelection.get()?.shapeId === shape.id) tableSelection.set(null)
+	}, [isSoleSelection, shape.id])
 	const active = useValue(
 		'activeTableCell',
 		() => {
@@ -390,7 +554,18 @@ function TableComponent({ shape }: { shape: TLTableShape }) {
 	const s = getStyle(shape.props, theme)
 	const cx = cumulative(colWidths)
 	const cy = cumulative(rowHeights).map((v) => v + th)
-	const cssAlign = textAlign === 'middle' ? 'center' : textAlign === 'end' ? 'right' : 'left'
+	const cssAlignFor = (c: number) => {
+		const a = shape.props.colAlign[c] ?? textAlign
+		return a === 'middle' ? 'center' : a === 'end' ? 'right' : 'left'
+	}
+	const selection = useValue(
+		'tableSelection',
+		() => {
+			const sel = tableSelection.get()
+			return sel && sel.shapeId === shape.id ? sel : null
+		},
+		[shape.id]
+	)
 
 	const cellBase: React.CSSProperties = {
 		boxSizing: 'border-box',
@@ -399,7 +574,6 @@ function TableComponent({ shape }: { shape: TLTableShape }) {
 		fontSize: s.fontSize,
 		lineHeight: 1.35,
 		color: s.text,
-		textAlign: cssAlign,
 		whiteSpace: 'pre-wrap',
 		wordBreak: 'break-word',
 		overflow: 'hidden',
@@ -440,7 +614,7 @@ function TableComponent({ shape }: { shape: TLTableShape }) {
 						/>
 					) : (
 						<div style={{ ...cellBase, fontWeight: 'bold', textAlign: 'center', whiteSpace: 'nowrap', padding: `0 ${CELL_PADDING}px`, opacity: title ? 1 : 0.4 }}>
-							{title || (isEditing ? 'Title' : '')}
+							{title || 'Title'}
 						</div>
 					)}
 				</div>
@@ -460,10 +634,15 @@ function TableComponent({ shape }: { shape: TLTableShape }) {
 				{cells.map((row, r) =>
 					row.map((text, c) => {
 						const isHeader = headerRow && r === 0
+						const selected =
+							selection && ((selection.kind === 'row' && selection.index === r) || (selection.kind === 'col' && selection.index === c))
 						const style: React.CSSProperties = {
 							...cellBase,
+							textAlign: cssAlignFor(c),
+							fontFamily: shape.props.colMono[c] ? s.monoFamily : s.fontFamily,
 							fontWeight: isHeader ? 'bold' : 'normal',
 							color: isHeader ? s.headerText : s.text,
+							background: selected ? 'rgba(66, 133, 244, 0.18)' : undefined,
 						}
 						const isActive = isEditing && active?.row === r && active?.col === c
 						if (isActive) {
@@ -477,7 +656,7 @@ function TableComponent({ shape }: { shape: TLTableShape }) {
 								style={style}
 								onPointerDown={isEditing ? () => activeTableCell.set({ shapeId: shape.id, row: r, col: c }) : undefined}
 							>
-								{text}
+								<InlineText text={text} codeFont={s.monoFamily} />
 							</div>
 						)
 					})
@@ -486,6 +665,7 @@ function TableComponent({ shape }: { shape: TLTableShape }) {
 			<svg style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }} width={w} height={h}>
 				<GridLines w={w} h={h} th={th} cx={cx} cy={cy} stroke={s.stroke} strokeWidth={s.strokeWidth} />
 			</svg>
+			{isSoleSelection && !isEditing && <GutterTabs shape={shape} selection={selection} />}
 			{isSoleSelection && <DividerStrips shape={shape} />}
 		</HTMLContainer>
 	)
