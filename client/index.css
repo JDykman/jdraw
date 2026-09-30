@@ -314,23 +314,20 @@ body {
 }
 
 .chat-input-submit {
-	width: 16px;
-	height: 16px;
-	align-self: flex-end;
+	flex: none;
+	width: 24px;
+	height: 24px;
+	padding: 0;
 	background: var(--tl-color-primary);
-	box-shadow: var(--tl-shadow-1);
-	color: var(--tl-color-panel-contrast);
+	color: #fff;
 	appearance: none;
 	border: 0;
-	border-radius: 4px;
+	border-radius: 50%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	cursor: pointer;
-	font-size: 10px;
-	text-align: center;
-	font-weight: 500;
-	border-radius: 100%;
+	transition: background-color 0.15s;
 }
 
 .chat-input-submit:hover {
@@ -338,8 +335,9 @@ body {
 }
 
 .chat-input-submit:disabled {
-	background: var(--tl-color-grid);
-	cursor: not-allowed;
+	background: var(--tl-color-muted-2);
+	color: var(--tl-color-text-3);
+	cursor: default;
 }
 
 .chat-actions {
@@ -1392,8 +1390,8 @@ button.prompt-tag span {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 18px;
-	height: 18px;
+	width: 24px;
+	height: 24px;
 	padding: 0;
 	border: none;
 	border-radius: 4px;

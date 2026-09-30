@@ -60,24 +60,30 @@ export const AGENT_MODEL_DEFINITIONS = {
 	},
 
 	// Google models
-	'gemini-3-pro-preview': {
-		name: 'gemini-3-pro-preview',
-		id: 'gemini-3-pro-preview',
+	'gemini-3.1-pro-preview': {
+		name: 'gemini-3.1-pro-preview',
+		id: 'gemini-3.1-pro-preview',
 		provider: 'google',
 		thinking: true,
 	},
 
-	// gemini 3 flash is fastest, and quite good
-	'gemini-3-flash-preview': {
-		name: 'gemini-3-flash-preview',
-		id: 'gemini-3-flash-preview',
+	// gemini 3.8 flash is fast, stable, and strong at agentic work
+	'gemini-3.8-flash': {
+		name: 'gemini-3.8-flash',
+		id: 'gemini-3.8-flash',
 		provider: 'google',
 	},
 
 	// OpenAI models
-	'gpt-5.2-2025-12-11': {
-		name: 'gpt-5.2-2025-12-11',
-		id: 'gpt-5.2-2025-12-11',
+	'gpt-5.5': {
+		name: 'gpt-5.5',
+		id: 'gpt-5.5',
+		provider: 'openai',
+	},
+
+	'gpt-6.1-sol': {
+		name: 'gpt-6.1-sol',
+		id: 'gpt-6.1-sol',
 		provider: 'openai',
 	},
 } as const satisfies Record<string, Omit<AgentModelDefinition, 'name'> & { name: string }>

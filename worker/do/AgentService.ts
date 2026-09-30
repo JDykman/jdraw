@@ -58,7 +58,10 @@ export class AgentService {
 		}
 
 		const modelDefinition = getAgentModelDefinition(modelId)
-		const systemPrompt = buildSystemPrompt(prompt)
+		// Newer Claude models reject assistant prefill, so the output format has to be spelled out
+		// instead (and the reply is still parsed leniently, see stripToJson and the fallback below).
+		const isModernAnthropic = !!modelDefinition.modernAnthropic
+		const systemPrompt = buildSystemPrompt(prompt) + (isModernAnthropic ? OUTPUT_FORMAT_REMINDER : '')
 
 		// Build messages with provider-specific options
 		const messages: ModelMessage[] = []
@@ -97,9 +100,6 @@ export class AgentService {
 			}
 		}
 
-		// Newer Claude models reject assistant prefill, so they have to produce the opening
-		// of the JSON themselves (see stripToJson below).
-		const isModernAnthropic = !!modelDefinition.modernAnthropic
 		const canForceResponseStart =
 			(provider === 'anthropic.messages' && !isModernAnthropic) || provider === 'google.generative-ai'
 
@@ -115,14 +115,15 @@ export class AgentService {
 		// Gemini: 256 for thinking models, 0 otherwise
 		const geminiThinkingBudget = modelDefinition.thinking ? 256 : 0
 
-		// OpenAI: 'none' for non-reasoning models, 'minimal' otherwise
-		const openaiReasoningEffort = provider === 'openai.responses' ? 'none' : 'minimal'
+		// OpenAI: 'low' is accepted by every current reasoning model (not all take 'none'/'minimal')
+		const openaiReasoningEffort = 'low'
 
 		try {
 			const result = streamText({
 				model,
 				messages,
-				maxOutputTokens: 8192,
+				// Modern Claude models always think, and thinking counts against this limit
+				maxOutputTokens: isModernAnthropic ? 16000 : 8192,
 				// Modern Claude models reject sampling params and can't disable thinking; low
 				// effort keeps time-to-first-action short since the agent has its own think action.
 				temperature: isModernAnthropic ? undefined : 0,
@@ -151,6 +152,7 @@ export class AgentService {
 			const { textStream } = result
 			let buffer = canForceResponseStart ? '{"actions": [{"_type":' : ''
 			let cursor = 0
+			let yielded = 0
 			let maybeIncompleteAction: AgentAction | null = null
 
 			let startTime = Date.now()
@@ -169,6 +171,7 @@ export class AgentService {
 				if (actions.length > cursor) {
 					const action = actions[cursor - 1] as AgentAction
 					if (action) {
+						yielded++
 						yield {
 							...action,
 							complete: true,
@@ -191,6 +194,7 @@ export class AgentService {
 					maybeIncompleteAction = action
 
 					// Yield the potentially incomplete event
+					yielded++
 					yield {
 						...action,
 						complete: false,
@@ -209,6 +213,19 @@ export class AgentService {
 					time: Date.now() - startTime,
 				}
 			}
+
+			// The model answered but not in the action format (e.g. plain prose). Show the answer
+			// as a chat message rather than silently dropping it.
+			const reply = canForceResponseStart ? '' : buffer.trim()
+			if (yielded === 0 && reply) {
+				console.warn(`[${modelId}] reply had no readable actions; showing it as a message:`, reply.slice(0, 500))
+				yield {
+					_type: 'message',
+					text: stripCodeFence(reply),
+					complete: true,
+					time: Date.now() - startTime,
+				} as Streaming<AgentAction>
+			}
 		} catch (error: any) {
 			console.error('streamActions error:', error)
 			throw error
@@ -216,13 +233,29 @@ export class AgentService {
 	}
 }
 
+const OUTPUT_FORMAT_REMINDER = `
+
+## Output format
+
+Reply with exactly one JSON object of the form {"actions": [ ... ]} that conforms to the schema above. Start your reply with \`{\`: no prose before or after it and no code fences. To say something to the user, put a \`message\` action inside \`actions\`.
+`
+
 /**
- * Without prefill, a model may emit a preamble or a ```json fence before the object.
- * Drop everything before the first `{` so the partial parser sees only JSON.
+ * Without prefill, a model may emit a preamble or a ```json fence before the JSON.
+ * Drop everything before it so the partial parser sees only JSON. A bare array of actions is
+ * wrapped as `{"actions": [...]}`.
  */
-function stripToJson(text: string): string {
-	const start = text.indexOf('{')
-	return start === -1 ? '' : text.slice(start)
+export function stripToJson(text: string): string {
+	const objectStart = text.search(/\{\s*"actions"/)
+	if (objectStart !== -1) return text.slice(objectStart)
+	const arrayStart = text.search(/\[\s*\{\s*"_type"/)
+	if (arrayStart !== -1) return `{"actions": ${text.slice(arrayStart)}`
+	return ''
+}
+
+function stripCodeFence(text: string): string {
+	const m = /^```\w*\n([\s\S]*?)\n?```$/.exec(text)
+	return m ? m[1].trim() : text
 }
 
 async function readUsage(result: ReturnType<typeof streamText>, modelName: string): Promise<AgentUsage> {

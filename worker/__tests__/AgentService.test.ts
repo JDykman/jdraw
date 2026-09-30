@@ -102,4 +102,33 @@ describe('AgentService with modern Claude models', () => {
 		assert.equal(call.temperature, 0)
 		assert.equal(call.prompt.at(-1)?.role, 'assistant')
 	})
+
+	it('tells modern models the output format and allows room for thinking', async () => {
+		const model = mockModel('claude-opus-5-5', 'anthropic.messages', '{"actions":[{"_type":"message","text":"ok"}]}')
+		await collect(new TestService(model), prompt('claude-opus-5-5'))
+		const call = model.doStreamCalls[0]
+		const system = call.prompt.find((m: { role: string }) => m.role === 'system')
+		assert.match(system.content, /## Output format/)
+		assert.equal(call.maxOutputTokens, 16000)
+	})
+
+	it('reads a bare array of actions', async () => {
+		const model = mockModel('claude-sonnet-5-5', 'anthropic.messages', 'Here:\n[{"_type":"message","text":"from array"}]')
+		const actions = await collect(new TestService(model), prompt('claude-sonnet-5-5'))
+		const done = actions.filter((a) => a.complete)
+		assert.equal(done.length, 1)
+		assert.equal((done[0] as { text: string }).text, 'from array')
+	})
+
+	it('shows a prose-only reply as a message instead of dropping it', async () => {
+		const model = mockModel(
+			'claude-sonnet-5-5',
+			'anthropic.messages',
+			'This diagram shows a login flow: the client calls the API, which checks {credentials}.'
+		)
+		const actions = await collect(new TestService(model), prompt('claude-sonnet-5-5'))
+		assert.equal(actions.length, 1)
+		assert.equal(actions[0]._type, 'message')
+		assert.match((actions[0] as { text: string }).text, /login flow/)
+	})
 })

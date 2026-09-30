@@ -26,6 +26,9 @@ export function CollabBar() {
 		return () => document.removeEventListener('pointerdown', close)
 	}, [pickerOpen])
 
+	// Nothing to follow or react to when you're alone on the page
+	if (peerIds.length === 0 && !followingId) return null
+
 	return (
 		<div className="collab-bar">
 			{peerIds.map((id) => (

@@ -19,24 +19,23 @@
 	--home-radius: 12px;
 }
 
-@media (prefers-color-scheme: dark) {
-	.home,
-	.home-dialog-overlay {
-		--home-bg: #151514;
-		--home-surface: #1f1f1d;
-		--home-surface-2: #2a2a27;
-		--home-border: #33332f;
-		--home-text: #ecece8;
-		--home-text-2: #a8a8a1;
-		--home-text-3: #74746e;
-		--home-accent: #5b8ff0;
-		--home-accent-hover: #7aa5f5;
-		--home-accent-soft: #1f2d48;
-		--home-danger: #ef6a5c;
-		--home-unseen: #f0a05a;
-		--home-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-		--home-shadow-hover: 0 4px 20px rgba(0, 0, 0, 0.5);
-	}
+/* Dark tokens: the theme follows tldraw's colour-scheme preference (see useHomeTheme) */
+:root[data-home-theme='dark'] .home,
+:root[data-home-theme='dark'] .home-dialog-overlay {
+	--home-bg: #151514;
+	--home-surface: #1f1f1d;
+	--home-surface-2: #2a2a27;
+	--home-border: #33332f;
+	--home-text: #ecece8;
+	--home-text-2: #a8a8a1;
+	--home-text-3: #74746e;
+	--home-accent: #5b8ff0;
+	--home-accent-hover: #7aa5f5;
+	--home-accent-soft: #1f2d48;
+	--home-danger: #ef6a5c;
+	--home-unseen: #f0a05a;
+	--home-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+	--home-shadow-hover: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 .home {

@@ -5,6 +5,7 @@ import { NewPageDialog, PromptDialog, ShareDialog, TagsDialog } from './HomeDial
 import { PageCard, PageCardActions } from './PageCard'
 import { hasUnseenEdits, PageSummary, usePages } from './pagesApi'
 import { setPendingTemplate } from './templates'
+import { useHomeTheme } from './useHomeTheme'
 import './home.css'
 
 type SortKey = 'recent' | 'name' | 'owner' | 'created'
@@ -50,6 +51,7 @@ export function HomePage({ onSelect }: { onSelect(pageId: string): void }) {
 	const [activeTags, setActiveTags] = useState<string[]>([])
 	const [dialog, setDialog] = useState<Dialog>(null)
 	const searchRef = useRef<HTMLInputElement>(null)
+	const theme = useHomeTheme()
 
 	useEffect(() => {
 		try {
@@ -164,6 +166,14 @@ export function HomePage({ onSelect }: { onSelect(pageId: string): void }) {
 				<div className="home-header-right">
 					<button className="home-btn home-btn--primary" onClick={() => setDialog({ type: 'new' })}>
 						+ New page
+					</button>
+					<button
+						className="home-icon-btn"
+						onClick={theme.cycle}
+						title={`Theme: ${theme.scheme} (click to change)`}
+						aria-label={`Theme: ${theme.scheme}. Change theme`}
+					>
+						{theme.scheme === 'light' ? '☀︎' : theme.scheme === 'dark' ? '☾' : '◐'}
 					</button>
 					<button className="home-icon-btn" onClick={() => setDialog({ type: 'settings' })} title="API keys" aria-label="API keys">
 						⚙
