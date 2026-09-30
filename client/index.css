@@ -1455,3 +1455,130 @@ button.prompt-tag span {
 	color: var(--tl-color-text);
 	background: var(--tl-color-muted-2);
 }
+
+/* Collaboration bar (top centre): avatars to follow, reactions */
+.collab-bar {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin-top: 8px;
+	padding: 4px;
+	border-radius: 999px;
+	background: var(--tl-color-panel);
+	box-shadow: var(--tl-shadow-2);
+	pointer-events: all;
+}
+
+.collab-avatar {
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	border: 2px solid var(--tl-color-panel);
+	border-radius: 50%;
+	color: #fff;
+	font-size: 12px;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.collab-avatar:hover {
+	transform: scale(1.08);
+}
+
+.collab-avatar--following {
+	box-shadow: 0 0 0 2px var(--tl-color-selected);
+}
+
+.collab-stop-following {
+	height: 26px;
+	padding: 0 10px;
+	border: none;
+	border-radius: 999px;
+	background: var(--tl-color-selected);
+	color: #fff;
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.collab-react {
+	position: relative;
+}
+
+.collab-react-button {
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	border: none;
+	border-radius: 50%;
+	background: transparent;
+	color: var(--tl-color-text-1);
+	font-size: 16px;
+	cursor: pointer;
+}
+
+.collab-react-button:hover {
+	background: var(--tl-color-muted-2);
+}
+
+.collab-react-picker {
+	position: absolute;
+	top: calc(100% + 8px);
+	left: 50%;
+	transform: translateX(-50%);
+	display: flex;
+	gap: 2px;
+	padding: 4px;
+	border-radius: 999px;
+	background: var(--tl-color-panel);
+	box-shadow: var(--tl-shadow-2);
+}
+
+.collab-react-picker button {
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	border: none;
+	border-radius: 50%;
+	background: transparent;
+	font-size: 18px;
+	cursor: pointer;
+	transition: transform 0.1s;
+}
+
+.collab-react-picker button:hover {
+	transform: scale(1.25);
+	background: var(--tl-color-muted-2);
+}
+
+.collab-reaction {
+	position: absolute;
+	z-index: 300;
+	font-size: 32px;
+	pointer-events: none;
+	transform: translate(-50%, -50%);
+	animation: collab-reaction-float 2.4s ease-out forwards;
+}
+
+@keyframes collab-reaction-float {
+	0% {
+		opacity: 0;
+		transform: translate(-50%, -50%) scale(0.4);
+	}
+	12% {
+		opacity: 1;
+		transform: translate(-50%, -70%) scale(1.15);
+	}
+	70% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+		transform: translate(-50%, -260%) scale(1);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.collab-reaction {
+		animation: none;
+	}
+}
