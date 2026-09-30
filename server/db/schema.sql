@@ -45,3 +45,32 @@ CREATE TABLE IF NOT EXISTS user_api_keys (
 
 CREATE INDEX IF NOT EXISTS idx_pages_owner  ON pages(owner_id);
 CREATE INDEX IF NOT EXISTS idx_shares_user  ON page_shares(user_id);
+
+-- Page metadata for the homepage: tags (shared per page), pins and last-viewed (per user), thumbnails.
+CREATE TABLE IF NOT EXISTS page_tags (
+    page_id TEXT NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+    tag     TEXT NOT NULL,
+    PRIMARY KEY (page_id, tag)
+);
+
+CREATE TABLE IF NOT EXISTS page_pins (
+    user_id   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    page_id   TEXT NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+    pinned_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, page_id)
+);
+
+CREATE TABLE IF NOT EXISTS page_views (
+    user_id        TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    page_id        TEXT NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+    last_viewed_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, page_id)
+);
+
+CREATE TABLE IF NOT EXISTS page_thumbnails (
+    page_id    TEXT PRIMARY KEY REFERENCES pages(id) ON DELETE CASCADE,
+    png        BLOB NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_page_tags_tag ON page_tags(tag);
