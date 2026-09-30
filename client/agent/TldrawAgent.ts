@@ -1,6 +1,6 @@
 import { Editor, RecordsDiff, reverseRecordsDiff, structuredClone, TLRecord } from 'tldraw'
 import { convertTldrawShapeToFocusedShape } from '../../shared/format/convertTldrawShapeToFocusedShape'
-import { AgentModelName } from '../../shared/models'
+import { AgentModelName, isValidModelName } from '../../shared/models'
 import { AgentAction } from '../../shared/types/AgentAction'
 import { AgentInput } from '../../shared/types/AgentInput'
 import { AgentPrompt, BaseAgentPrompt } from '../../shared/types/AgentPrompt'
@@ -190,7 +190,8 @@ export class TldrawAgent {
 		if (state.contextItems) {
 			this.context.setItems(state.contextItems)
 		}
-		if (state.modelName) {
+		// Saved state may reference a model that has since been removed from the list
+		if (isValidModelName(state.modelName)) {
 			this.modelName.setModelName(state.modelName)
 		}
 		if (state.debugFlags) {

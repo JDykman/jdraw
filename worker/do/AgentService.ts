@@ -94,11 +94,19 @@ export class AgentService {
 			}
 		}
 
+		// Newer Claude models reject assistant prefill, so they have to produce the opening
+		// of the JSON themselves (see stripToJson below).
+		const isModernAnthropic = !!modelDefinition.modernAnthropic
+		const canForceResponseStart =
+			(provider === 'anthropic.messages' && !isModernAnthropic) || provider === 'google.generative-ai'
+
 		// Add the assistant message to indicate the start of the actions
-		messages.push({
-			role: 'assistant',
-			content: '{"actions": [{"_type":',
-		})
+		if (canForceResponseStart) {
+			messages.push({
+				role: 'assistant',
+				content: '{"actions": [{"_type":',
+			})
+		}
 
 		// Configure thinking budgets based on model. We let models think using the think action, so we keep this as low as possible to minimize time to first token
 		// Gemini: 256 for thinking models, 0 otherwise
@@ -112,11 +120,13 @@ export class AgentService {
 				model,
 				messages,
 				maxOutputTokens: 8192,
-				temperature: 0,
+				// Modern Claude models reject sampling params and can't disable thinking; low
+				// effort keeps time-to-first-action short since the agent has its own think action.
+				temperature: isModernAnthropic ? undefined : 0,
 				providerOptions: {
-					anthropic: {
-						thinking: { type: 'disabled' },
-					},
+					anthropic: isModernAnthropic
+						? { thinking: { type: 'adaptive' }, effort: 'low' }
+						: { thinking: { type: 'disabled' } },
 					google: {
 						thinkingConfig: { thinkingBudget: geminiThinkingBudget },
 					},
@@ -135,8 +145,6 @@ export class AgentService {
 				},
 			})
 
-			const canForceResponseStart =
-				provider === 'anthropic.messages' || provider === 'google.generative-ai'
 			let buffer = canForceResponseStart ? '{"actions": [{"_type":' : ''
 			let cursor = 0
 			let maybeIncompleteAction: AgentAction | null = null
@@ -145,7 +153,7 @@ export class AgentService {
 			for await (const text of textStream) {
 				buffer += text
 
-				const partialObject = closeAndParseJson(buffer)
+				const partialObject = closeAndParseJson(canForceResponseStart ? buffer : stripToJson(buffer))
 				if (!partialObject) continue
 
 				const actions = partialObject.actions
@@ -200,4 +208,13 @@ export class AgentService {
 			throw error
 		}
 	}
+}
+
+/**
+ * Without prefill, a model may emit a preamble or a ```json fence before the object.
+ * Drop everything before the first `{` so the partial parser sees only JSON.
+ */
+function stripToJson(text: string): string {
+	const start = text.indexOf('{')
+	return start === -1 ? '' : text.slice(start)
 }
