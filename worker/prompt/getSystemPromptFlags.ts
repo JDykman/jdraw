@@ -21,6 +21,7 @@ export function getSystemPromptFlags(actions: AgentAction['_type'][], parts: Pro
 		hasUpdate: actions.includes('update'),
 		hasLabel: actions.includes('label'),
 		hasMove: actions.includes('move'),
+		hasTableEdit: actions.includes('table-edit'),
 
 		// Groups of shapes
 		hasPlace: actions.includes('place'),

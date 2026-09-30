@@ -22,6 +22,7 @@ import { RotateActionUtil } from '../actions/RotateActionUtil'
 import { SendToBackActionUtil } from '../actions/SendToBackActionUtil'
 import { SetMyViewActionUtil } from '../actions/SetMyViewActionUtil'
 import { StackActionUtil } from '../actions/StackActionUtil'
+import { TableEditActionUtil } from '../actions/TableEditActionUtil'
 import { ThinkActionUtil } from '../actions/ThinkActionUtil'
 import { UnknownActionUtil } from '../actions/UnknownActionUtil'
 import { UpdateActionUtil } from '../actions/UpdateActionUtil'
@@ -149,6 +150,7 @@ export const AGENT_MODE_DEFINITIONS = [
 			UpdateActionUtil.type,
 			LabelActionUtil.type,
 			MoveActionUtil.type,
+			TableEditActionUtil.type,
 
 			// Groups of shapes
 			PlaceActionUtil.type,

@@ -358,6 +358,46 @@ export const UpsertPersonalTodoItemAction = z
 
 export type UpsertPersonalTodoItemAction = z.infer<typeof UpsertPersonalTodoItemAction>
 
+// Table Edit Action
+const TableIndex = z.number().int()
+// Not exported: every exported Zod schema in this file is treated as an action.
+const TableEditOp = z.union([
+	z.object({ op: z.literal('insert-row'), index: TableIndex, values: z.array(z.string()).optional() }),
+	z.object({
+		op: z.literal('insert-column'),
+		index: TableIndex,
+		values: z.array(z.string()).optional(),
+		width: z.number().optional(),
+	}),
+	z.object({ op: z.literal('delete-row'), index: TableIndex }),
+	z.object({ op: z.literal('delete-column'), index: TableIndex }),
+	z.object({ op: z.literal('move-row'), from: TableIndex, to: TableIndex }),
+	z.object({ op: z.literal('move-column'), from: TableIndex, to: TableIndex }),
+	z.object({ op: z.literal('set-cell'), row: TableIndex, col: TableIndex, text: z.string() }),
+	z.object({ op: z.literal('set-row'), row: TableIndex, values: z.array(z.string()) }),
+	z.object({ op: z.literal('set-title'), title: z.string() }),
+	z.object({ op: z.literal('set-header-row'), enabled: z.boolean() }),
+	z.object({ op: z.literal('set-column-mono'), col: TableIndex, enabled: z.boolean() }),
+])
+
+export type TableEditOp = z.infer<typeof TableEditOp>
+
+export const TableEditAction = z
+	.object({
+		_type: z.literal('table-edit'),
+		intent: z.string(),
+		shapeId: SimpleShapeIdSchema,
+		ops: z.array(TableEditOp),
+	})
+	.meta({
+		title: 'Table Edit',
+		description:
+			'The AI edits a table shape in place. Ops run in order; each index refers to the table as it is after the previous ops. Row indices include the header row (row 0). `insert-row`/`insert-column` `index` is the position the new row/column will occupy (0 = top/left; use the current count to append). `set-title` with an empty string removes the title. Prefer this over `update` for tables: it keeps arrows attached to the right rows.',
+		_systemPromptCategory: 'edit',
+	})
+
+export type TableEditAction = z.infer<typeof TableEditAction>
+
 // Update Action
 export const UpdateAction = z
 	.object({

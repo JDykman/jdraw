@@ -41,6 +41,8 @@ import {
 	TableShapeTool,
 	TableShapeUtil,
 	TableToolbar,
+	hasTableSelection,
+	runTableOp,
 	setupTableShape,
 } from './shapes/table'
 
@@ -53,6 +55,20 @@ const tools = [TargetShapeTool, TargetAreaTool, TableShapeTool]
 const shapeUtils = [...defaultShapeUtils, TableShapeUtil]
 const assetUrls = { icons: { 'tool-table': TABLE_ICON_URL } }
 const overrides: TLUiOverrides = {
+	// Delete/Backspace with a table row/column selected deletes that row/column, not the table.
+	actions: (editor, actions) => {
+		const del = actions['delete']
+		return {
+			...actions,
+			delete: {
+				...del,
+				onSelect(source) {
+					if (hasTableSelection(editor)) runTableOp(editor, 'delete-selected')
+					else del.onSelect(source)
+				},
+			},
+		}
+	},
 	tools: (editor, tools) => {
 		return {
 			...tools,

@@ -7,11 +7,14 @@ import {
 	useEditor,
 	useValue,
 } from 'tldraw'
+import { copySelectedTablesAsSql, getSelectedTables } from './tableSqlExport'
 import { copyTableAs, getSelectedTable, runTableOp } from './TableToolbar'
 
 export function TableContextMenu(props: TLUiContextMenuProps) {
 	const editor = useEditor()
 	const table = useValue('selected table', () => getSelectedTable(editor), [editor])
+	// Multi-table selections (e.g. an ER diagram with its arrows) export together as one script.
+	const tableCount = useValue('selected table count', () => getSelectedTables(editor).length, [editor])
 	return (
 		<DefaultContextMenu {...props}>
 			{table && (
@@ -32,10 +35,19 @@ export function TableContextMenu(props: TLUiContextMenuProps) {
 					/>
 				</TldrawUiMenuGroup>
 			)}
-			{table && (
+			{tableCount > 0 && (
 				<TldrawUiMenuGroup id="table-export">
-					<TldrawUiMenuItem id="table-copy-md" label="Copy as Markdown" onSelect={() => copyTableAs(editor, 'markdown')} />
-					<TldrawUiMenuItem id="table-copy-csv" label="Copy as CSV" onSelect={() => copyTableAs(editor, 'csv')} />
+					{table && (
+						<>
+							<TldrawUiMenuItem id="table-copy-md" label="Copy as Markdown" onSelect={() => copyTableAs(editor, 'markdown')} />
+							<TldrawUiMenuItem id="table-copy-csv" label="Copy as CSV" onSelect={() => copyTableAs(editor, 'csv')} />
+						</>
+					)}
+					<TldrawUiMenuItem
+						id="table-copy-sql"
+						label={tableCount > 1 ? `Copy ${tableCount} tables as SQL` : 'Copy as SQL'}
+						onSelect={() => copySelectedTablesAsSql(editor)}
+					/>
 				</TldrawUiMenuGroup>
 			)}
 			<DefaultContextMenuContent />

@@ -1,28 +1,10 @@
 import { Editor, TLArrowBinding, TLBinding, Vec } from 'tldraw'
 import { TLTableShape } from '../../../shared/table/tableShapeProps'
-import { cumulative, titleHeight } from './tableOps'
+import { isRetargetingTableArrows } from './tableArrowRetarget'
+import { tableSnapPoints } from '../../../shared/table/tableOps'
 
 /** Screen pixels within which an arrow endpoint snaps to a row/column point. */
 const SNAP_THRESHOLD_PX = 18
-
-/** Snap points in shape space: every row midpoint on the left/right edges, every column midpoint top/bottom. */
-export function getTableSnapPoints(shape: TLTableShape): Vec[] {
-	const { w, h, colWidths, rowHeights } = shape.props
-	const th = titleHeight(shape.props)
-	const cx = cumulative(colWidths)
-	const cy = cumulative(rowHeights)
-	const pts: Vec[] = []
-	rowHeights.forEach((rh, i) => {
-		const y = th + cy[i] + rh / 2
-		pts.push(new Vec(0, y), new Vec(w, y))
-	})
-	colWidths.forEach((cw, i) => {
-		const x = cx[i] + cw / 2
-		pts.push(new Vec(x, 0), new Vec(x, h))
-	})
-	if (th > 0) pts.push(new Vec(0, th / 2), new Vec(w, th / 2))
-	return pts
-}
 
 /**
  * tldraw's arrow terminals don't participate in handle snapping, so getHandleSnapGeometry is
@@ -33,16 +15,20 @@ export function getTableSnapPoints(shape: TLTableShape): Vec[] {
 export function registerTableArrowSnapping(editor: Editor) {
 	const snap = (binding: TLBinding): TLBinding => {
 		if (binding.type !== 'arrow') return binding
+		if (isRetargetingTableArrows()) return binding
 		if (!editor.inputs.getIsPointing()) return binding
+		// Only snap while an arrow is being drawn or its endpoint dragged, not during e.g. a divider drag.
+		const arrow = editor.getShape(binding.fromId)
+		if (!arrow || !editor.getSelectedShapeIds().includes(arrow.id)) return binding
 		const target = editor.getShape(binding.toId)
 		if (!target || !editor.isShapeOfType<TLTableShape>(target, 'table')) return binding
 
 		const pointer = editor.getPointInShapeSpace(target, editor.inputs.getCurrentPagePoint())
 		const threshold = SNAP_THRESHOLD_PX / editor.getZoomLevel()
 
-		let best: Vec | null = null
+		let best: { x: number; y: number } | null = null
 		let bestD = threshold
-		for (const p of getTableSnapPoints(target)) {
+		for (const p of tableSnapPoints(target.props)) {
 			const d = Vec.Dist(p, pointer)
 			if (d < bestD) {
 				bestD = d
