@@ -175,3 +175,111 @@
 .history-btn--danger {
 	color: #a12626;
 }
+
+/* Compare dialog */
+.compare-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.35);
+}
+.compare-dialog {
+	display: flex;
+	flex-direction: column;
+	width: min(1100px, 92vw);
+	height: min(760px, 88vh);
+	border-radius: 12px;
+	background: var(--color-panel, #fff);
+	color: var(--color-text, #111);
+	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+	overflow: hidden;
+	font-size: 13px;
+}
+.compare-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--color-divider, #e5e5e5);
+}
+.compare-header h3 {
+	margin: 0;
+	font-size: 15px;
+	font-weight: 600;
+}
+.compare-counts {
+	margin-top: 2px;
+	color: var(--color-text-1, #666);
+}
+.compare-controls {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+.compare-direction {
+	display: inline-flex;
+	border: 1px solid var(--color-divider, #d8d8d8);
+	border-radius: 6px;
+	overflow: hidden;
+}
+.compare-direction button {
+	height: 28px;
+	padding: 0 10px;
+	border: 0;
+	background: var(--color-background, #fff);
+	color: inherit;
+	font: inherit;
+	font-size: 12px;
+	cursor: pointer;
+}
+.compare-direction button + button {
+	border-left: 1px solid var(--color-divider, #d8d8d8);
+}
+.compare-direction button[aria-pressed='true'] {
+	background: #2f80ed;
+	color: #fff;
+}
+.compare-body {
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	padding: 12px 16px;
+}
+.compare-body .tldraw-viewer {
+	flex: 1;
+	height: auto;
+	min-height: 0;
+	border: 1px solid var(--color-divider, #e5e5e5);
+	border-radius: 8px;
+	overflow: hidden;
+}
+.compare-legend {
+	display: flex;
+	gap: 16px;
+	padding: 8px 16px 12px;
+	color: var(--color-text-1, #666);
+	font-size: 12px;
+}
+.compare-legend-item::before {
+	content: '';
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	margin-right: 6px;
+	border-radius: 2px;
+	vertical-align: -1px;
+}
+.compare-legend-item--added::before {
+	background: rgba(0, 200, 0, 0.6);
+}
+.compare-legend-item--updated::before {
+	background: rgba(0, 100, 255, 0.6);
+}
+.compare-legend-item--removed::before {
+	background: rgba(200, 0, 0, 0.6);
+}

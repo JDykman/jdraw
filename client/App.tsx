@@ -33,7 +33,8 @@ import { ChatPanel } from './components/ChatPanel'
 import { ChatPanelFallback } from './components/ChatPanelFallback'
 import { CustomHelperButtons } from './components/CustomHelperButtons'
 import { CollabBar, ReactionsOverlay } from './collab/CollabBar'
-import { HistoryPanel } from './history/HistoryPanel'
+import { CompareDialog } from './history/CompareDialog'
+import { Checkpoint, HistoryPanel } from './history/HistoryPanel'
 import { getPresenceWithReaction } from './collab/reactions'
 import { PageThumbnailSync } from './pages/PageThumbnailSync'
 import { TemplateApplier } from './pages/TemplateApplier'
@@ -262,6 +263,8 @@ function App({ pageId, onBack, onReload }: AppProps) {
 	const [app, setApp] = useState<TldrawAgentApp | null>(null)
 	const [historyOpen, setHistoryOpen] = useState(false)
 	const closeHistory = useCallback(() => setHistoryOpen(false), [])
+	const [compareTarget, setCompareTarget] = useState<Checkpoint | null>(null)
+	const closeCompare = useCallback(() => setCompareTarget(null), [])
 	const [sidebarOpen, setSidebarOpen] = useState(() => {
 		const saved = localStorage.getItem('jdraw:sidebarOpen')
 		return saved !== null ? saved === 'true' : true
@@ -404,7 +407,12 @@ function App({ pageId, onBack, onReload }: AppProps) {
 							editor={app.editor}
 						/>
 					)}
-					{historyOpen && <HistoryPanel pageId={pageId} onClose={closeHistory} />}
+					{historyOpen && (
+						<HistoryPanel pageId={pageId} onClose={closeHistory} onCompare={app ? setCompareTarget : undefined} />
+					)}
+					{compareTarget && app && (
+						<CompareDialog pageId={pageId} checkpoint={compareTarget} editor={app.editor} onClose={closeCompare} />
+					)}
 				</div>
 				<ErrorBoundary fallback={ChatPanelFallback}>
 					{app && (
