@@ -29,10 +29,16 @@ import {
 } from './agent/TldrawAgentAppProvider'
 import { SNAPSHOT_LOAD_FAILED_REASON } from '../shared/sync/closeReasons'
 import { useAuth } from './auth/AuthContext'
+import { CanvasContextMenu } from './components/CanvasContextMenu'
 import { ChatPanel } from './components/ChatPanel'
 import { ChatPanelFallback } from './components/ChatPanelFallback'
 import { CustomHelperButtons } from './components/CustomHelperButtons'
 import { CollabBar, ReactionsOverlay } from './collab/CollabBar'
+import { $commentsPanelOpen, $openThreadCount, CommentsProvider } from './comments/commentsApi'
+import { handleCustomSyncMessage } from './comments/commentsBus'
+import { CommentsOverlay } from './comments/CommentsOverlay'
+import { CommentsPanel } from './comments/CommentsPanel'
+import { COMMENT_ICON_URL, CommentTool } from './comments/CommentTool'
 import { CompareDialog } from './history/CompareDialog'
 import { Checkpoint, HistoryPanel } from './history/HistoryPanel'
 import { getPresenceWithReaction } from './collab/reactions'
@@ -44,7 +50,6 @@ import { TargetAreaTool } from './tools/TargetAreaTool'
 import { TargetShapeTool } from './tools/TargetShapeTool'
 import {
 	TABLE_ICON_URL,
-	TableContextMenu,
 	TableShapeTool,
 	TableShapeUtil,
 	TableToolbar,
@@ -56,11 +61,11 @@ import {
 // Customize tldraw's styles to play to the agent's strengths
 DefaultSizeStyle.setDefaultValue('s')
 
-const tools = [TargetShapeTool, TargetAreaTool, TableShapeTool]
+const tools = [TargetShapeTool, TargetAreaTool, TableShapeTool, CommentTool]
 // useSync builds its schema from these utils and does NOT add the defaults itself,
 // so the defaults must be included or the schema is missing the built-in shapes.
 const shapeUtils = [...defaultShapeUtils, TableShapeUtil]
-const assetUrls = { icons: { 'tool-table': TABLE_ICON_URL } }
+const assetUrls = { icons: { 'tool-table': TABLE_ICON_URL, 'tool-comment': COMMENT_ICON_URL } }
 const overrides: TLUiOverrides = {
 	// Delete/Backspace with a table row/column selected deletes that row/column, not the table.
 	actions: (editor, actions) => {
@@ -85,6 +90,18 @@ const overrides: TLUiOverrides = {
 				icon: 'tool-table',
 				onSelect() {
 					editor.setCurrentTool('table')
+				},
+			},
+			comment: {
+				id: 'comment',
+				label: 'Comment',
+				// Shift+C: plain C picks an area for the agent, and tldraw uses the other letters
+				kbd: 'shift+c',
+				icon: 'tool-comment',
+				// Read-only shares can comment even though they can't draw
+				readonlyOk: true,
+				onSelect() {
+					editor.setCurrentTool('comment')
 				},
 			},
 			'target-area': {
@@ -112,10 +129,12 @@ const overrides: TLUiOverrides = {
 function Toolbar() {
 	const tools = useTools()
 	const isTableSelected = useIsToolSelected(tools['table'])
+	const isCommentSelected = useIsToolSelected(tools['comment'])
 	return (
 		<DefaultToolbar>
 			<DefaultToolbarContent />
 			<TldrawUiMenuToolItem toolId="table" isSelected={isTableSelected} />
+			<TldrawUiMenuToolItem toolId="comment" isSelected={isCommentSelected} />
 		</DefaultToolbar>
 	)
 }
@@ -157,14 +176,19 @@ function CanvasNavButtons({
 	onBack,
 	onHistory,
 	historyOpen,
+	onComments,
+	commentsOpen,
 	editor,
 }: {
 	onBack?: () => void
 	onHistory: () => void
 	historyOpen: boolean
+	onComments: () => void
+	commentsOpen: boolean
 	editor: any
 }) {
 	const isMenuOpen = useValue('isMenuOpen', () => editor.getInstanceState().isMenuOpen, [editor])
+	const openThreads = useValue($openThreadCount)
 
 	return (
 		<div className={`canvas-nav-buttons${isMenuOpen ? ' canvas-nav-buttons--menu-open' : ''}`}>
@@ -207,6 +231,28 @@ function CanvasNavButtons({
 					<path d="M12 7v5l3 2" />
 				</svg>
 				<span>History</span>
+			</button>
+			<button
+				className={`back-to-pages-button${commentsOpen ? ' back-to-pages-button--active' : ''}`}
+				onClick={onComments}
+				title="Comments"
+				aria-pressed={commentsOpen}
+			>
+				<svg
+					width="14"
+					height="14"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2.5"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					style={{ display: 'block' }}
+				>
+					<path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H6a2 2 0 0 1-2-2z" />
+				</svg>
+				<span>Comments</span>
+				{openThreads > 0 && <span className="canvas-nav-badge">{openThreads}</span>}
 			</button>
 		</div>
 	)
@@ -265,6 +311,19 @@ function App({ pageId, onBack, onReload }: AppProps) {
 	const closeHistory = useCallback(() => setHistoryOpen(false), [])
 	const [compareTarget, setCompareTarget] = useState<Checkpoint | null>(null)
 	const closeCompare = useCallback(() => setCompareTarget(null), [])
+	const commentsOpen = useValue($commentsPanelOpen)
+	// History and Comments share the same spot, so opening one closes the other
+	const toggleHistory = useCallback(() => {
+		setHistoryOpen((o) => {
+			if (!o) $commentsPanelOpen.set(false)
+			return !o
+		})
+	}, [])
+	const toggleComments = useCallback(() => {
+		const next = !$commentsPanelOpen.get()
+		$commentsPanelOpen.set(next)
+		if (next) setHistoryOpen(false)
+	}, [])
 	const [sidebarOpen, setSidebarOpen] = useState(() => {
 		const saved = localStorage.getItem('jdraw:sidebarOpen')
 		return saved !== null ? saved === 'true' : true
@@ -336,7 +395,15 @@ function App({ pageId, onBack, onReload }: AppProps) {
 		[]
 	)
 
-	const store = useSync({ uri: wsUri, userInfo, assets, shapeUtils, getUserPresence: getPresenceWithReaction })
+	const store = useSync({
+		uri: wsUri,
+		userInfo,
+		assets,
+		shapeUtils,
+		getUserPresence: getPresenceWithReaction,
+		// Server-side notifications (e.g. comment changes) arrive here
+		onCustomMessageReceived: handleCustomSyncMessage,
+	})
 
 	const components: TLComponents = useMemo(
 		() => ({
@@ -344,7 +411,7 @@ function App({ pageId, onBack, onReload }: AppProps) {
 			Overlays,
 			LoadingScreen,
 			Toolbar,
-			ContextMenu: TableContextMenu,
+			ContextMenu: CanvasContextMenu,
 			TopPanel: CollabBar,
 			// The collab bar lists people and handles follow; tldraw's people menu would duplicate it
 			SharePanel: null,
@@ -355,6 +422,7 @@ function App({ pageId, onBack, onReload }: AppProps) {
 					<PageThumbnailSync pageId={pageId} />
 					<TemplateApplier pageId={pageId} />
 					<ReactionsOverlay />
+					<CommentsOverlay />
 				</>
 			),
 		}),
@@ -386,33 +454,38 @@ function App({ pageId, onBack, onReload }: AppProps) {
 				style={{ background: '#f0f0f0' }}
 			>
 				<div className="tldraw-canvas" style={{ background: 'white' }}>
-					<ErrorBoundary fallback={(err: any) => <div className="app-loading">Canvas Crash: {err.message}</div>}>
-						<Tldraw
-							store={store}
-							user={tldrawUser}
-							onMount={setupTableShape}
-							shapeUtils={shapeUtils}
-							assetUrls={assetUrls}
-							tools={tools}
-							overrides={overrides}
-							components={components}
-							licenseKey="tldraw-2031-04-28/WyJHVWxTbGFYNyIsWyIqLmpkcmF3Lm1iamFrZS5jb20iXSw5LCIyMDMxLTA0LTI4Il0.d0WjSqelMluLq8iDFR2dAYd7Ft39qxDQ4d+135Rskj2FdG+g/E11xsBQ+9vyyO0BwWnBa6FD6YwrGuReBKEVtA"
-						/>
-					</ErrorBoundary>
-					{app && (
-						<CanvasNavButtons
-							onBack={onBack}
-							onHistory={() => setHistoryOpen((o) => !o)}
-							historyOpen={historyOpen}
-							editor={app.editor}
-						/>
-					)}
-					{historyOpen && (
-						<HistoryPanel pageId={pageId} onClose={closeHistory} onCompare={app ? setCompareTarget : undefined} />
-					)}
-					{compareTarget && app && (
-						<CompareDialog pageId={pageId} checkpoint={compareTarget} editor={app.editor} onClose={closeCompare} />
-					)}
+					<CommentsProvider pageId={pageId}>
+						<ErrorBoundary fallback={(err: any) => <div className="app-loading">Canvas Crash: {err.message}</div>}>
+							<Tldraw
+								store={store}
+								user={tldrawUser}
+								onMount={setupTableShape}
+								shapeUtils={shapeUtils}
+								assetUrls={assetUrls}
+								tools={tools}
+								overrides={overrides}
+								components={components}
+								licenseKey="tldraw-2031-04-28/WyJHVWxTbGFYNyIsWyIqLmpkcmF3Lm1iamFrZS5jb20iXSw5LCIyMDMxLTA0LTI4Il0.d0WjSqelMluLq8iDFR2dAYd7Ft39qxDQ4d+135Rskj2FdG+g/E11xsBQ+9vyyO0BwWnBa6FD6YwrGuReBKEVtA"
+							/>
+						</ErrorBoundary>
+						{app && (
+							<CanvasNavButtons
+								onBack={onBack}
+								onHistory={toggleHistory}
+								historyOpen={historyOpen}
+								onComments={toggleComments}
+								commentsOpen={commentsOpen}
+								editor={app.editor}
+							/>
+						)}
+						{historyOpen && (
+							<HistoryPanel pageId={pageId} onClose={closeHistory} onCompare={app ? setCompareTarget : undefined} />
+						)}
+						{compareTarget && app && (
+							<CompareDialog pageId={pageId} checkpoint={compareTarget} editor={app.editor} onClose={closeCompare} />
+						)}
+						{commentsOpen && app && <CommentsPanel editor={app.editor} />}
+					</CommentsProvider>
 				</div>
 				<ErrorBoundary fallback={ChatPanelFallback}>
 					{app && (

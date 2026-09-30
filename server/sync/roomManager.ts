@@ -329,6 +329,23 @@ export function shutdownRooms() {
 	for (const pageId of [...rooms.keys()]) evictRoom(pageId)
 }
 
+/**
+ * Send an application message (not part of the document) to every connected session of a page's
+ * live room. No-op when the page has no room open.
+ */
+export function sendCustomMessageToPage(pageId: string, data: unknown) {
+	const entry = rooms.get(pageId)
+	if (!entry) return
+	for (const session of entry.room.getSessions()) {
+		if (!session.isConnected) continue
+		try {
+			entry.room.sendCustomMessage(session.sessionId, data)
+		} catch (e) {
+			console.warn(`Failed to notify session ${session.sessionId} on page ${pageId}:`, e)
+		}
+	}
+}
+
 /** The page's latest document as JSON: the live room if it's open, otherwise the stored snapshot. */
 export function getPageSnapshotJson(pageId: string): string | null {
 	const entry = rooms.get(pageId)

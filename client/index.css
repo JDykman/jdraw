@@ -983,6 +983,17 @@ button.prompt-tag span {
 .back-to-pages-button--active {
 	background-color: var(--color-low, #f5f5f5);
 }
+.canvas-nav-badge {
+	min-width: 18px;
+	height: 18px;
+	padding: 0 5px;
+	border-radius: 9px;
+	background: #f2994a;
+	color: #fff;
+	font-size: 11px;
+	line-height: 18px;
+	text-align: center;
+}
 
 /* Loading state */
 .app-loading {

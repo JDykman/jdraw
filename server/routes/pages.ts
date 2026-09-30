@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
 import express, { Router } from 'express'
+import { getUnreadCounts } from '../db/comments.js'
 import { db } from '../db/db.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { getPageSnapshotJson } from '../sync/roomManager.js'
@@ -55,6 +56,7 @@ router.get('/', (req, res) => {
 			 ORDER BY COALESCE(p.last_edited_at, p.updated_at) DESC`
 		)
 		.all({ userId }) as PageRow[]
+	const unread = getUnreadCounts(userId)
 	const pages = rows.map((p) => ({
 		id: p.id,
 		name: p.name,
@@ -71,6 +73,8 @@ router.get('/', (req, res) => {
 		pinned: p.pinned_at != null,
 		thumbnailUpdatedAt: p.thumbnail_updated_at,
 		tags: p.tags ? p.tags.split('\x1f').sort() : [],
+		unreadComments: unread.get(p.id)?.unread ?? 0,
+		unreadMentions: unread.get(p.id)?.mentions ?? 0,
 	}))
 	res.json({
 		pages,

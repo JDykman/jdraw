@@ -11,6 +11,7 @@ import { authMiddleware } from './middleware/auth.js'
 import agentStateRouter from './routes/agentState.js'
 import authRouter from './routes/auth.js'
 import checkpointsRouter from './routes/checkpoints.js'
+import commentsRouter, { notificationsRouter } from './routes/comments.js'
 import keysRouter from './routes/keys.js'
 import pagesRouter from './routes/pages.js'
 import streamRouter from './routes/stream.js'
@@ -58,6 +59,8 @@ app.use('/api/users', usersRouter)
 app.use('/api/pages', pagesRouter)
 app.use('/api/pages', agentStateRouter)
 app.use('/api/pages', checkpointsRouter)
+app.use('/api/pages', commentsRouter)
+app.use('/api/notifications', notificationsRouter)
 app.use('/api/keys', keysRouter)
 app.use('/api/stream', authMiddleware, streamRouter)
 

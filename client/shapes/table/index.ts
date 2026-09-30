@@ -1,6 +1,6 @@
 export { TableShapeUtil } from './TableShapeUtil'
 export { TableShapeTool } from './TableShapeTool'
 export { TableToolbar, runTableOp, getSelectedTable, hasTableSelection } from './TableToolbar'
-export { TableContextMenu } from './TableContextMenu'
+export { TableContextMenuItems } from './TableContextMenu'
 export { TABLE_ICON_URL } from './tableIcon'
 export { registerTablePasteHandler, setupTableShape } from './tablePaste'
