@@ -8,7 +8,7 @@
 		"build": "vite build && tsc -p tsconfig.server.json && cp server/db/schema.sql dist-server/server/db/schema.sql",
 		"start": "node dist-server/server/index.js",
 		"preview": "vite preview",
-		"test": "node --import tsx --test \"client/**/__tests__/*.test.ts\" \"server/**/__tests__/*.test.ts\" \"shared/**/__tests__/*.test.ts\"",
+		"test": "node --import tsx --test --test-force-exit \"client/**/__tests__/*.test.ts\" \"server/**/__tests__/*.test.ts\" \"shared/**/__tests__/*.test.ts\" \"worker/**/__tests__/*.test.ts\"",
 		"typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json"
 	},
 	"dependencies": {

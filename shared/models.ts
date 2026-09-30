@@ -12,6 +12,16 @@ export interface AgentModelDefinition {
 	// Anthropic models from the 4.6+ generation reject assistant prefill, `temperature`,
 	// and `thinking: disabled`. They always think adaptively; we steer with effort instead.
 	modernAnthropic?: boolean
+
+	// USD per million tokens, for the chat cost meter. Omitted where we don't track prices.
+	pricing?: ModelPricing
+}
+
+export interface ModelPricing {
+	input: number
+	output: number
+	cacheRead: number
+	cacheWrite: number
 }
 
 export const AGENT_MODEL_DEFINITIONS = {
@@ -21,6 +31,7 @@ export const AGENT_MODEL_DEFINITIONS = {
 		name: 'claude-sonnet-5-5',
 		id: 'claude-sonnet-5-5',
 		provider: 'anthropic',
+		pricing: { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 },
 		modernAnthropic: true,
 	},
 
@@ -28,6 +39,7 @@ export const AGENT_MODEL_DEFINITIONS = {
 		name: 'claude-opus-5-5',
 		id: 'claude-opus-5-5',
 		provider: 'anthropic',
+		pricing: { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
 		modernAnthropic: true,
 	},
 
@@ -35,6 +47,7 @@ export const AGENT_MODEL_DEFINITIONS = {
 		name: 'claude-fable-5-1',
 		id: 'claude-fable-5-1',
 		provider: 'anthropic',
+		pricing: { input: 10, output: 50, cacheRead: 0.25, cacheWrite: 12.5 },
 		modernAnthropic: true,
 	},
 
@@ -43,6 +56,7 @@ export const AGENT_MODEL_DEFINITIONS = {
 		name: 'claude-haiku-4-5',
 		id: 'claude-haiku-4-5',
 		provider: 'anthropic',
+		pricing: { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25 },
 	},
 
 	// Google models
@@ -88,4 +102,28 @@ export function getAgentModelDefinition(modelName: AgentModelName): AgentModelDe
 		throw new Error(`Model ${modelName} not found`)
 	}
 	return definition
+}
+
+/** Token counts for one model response, as reported by the provider. */
+export interface AgentUsage {
+	modelName: string
+	/** Uncached input tokens */
+	inputTokens: number
+	outputTokens: number
+	cacheReadTokens: number
+	cacheWriteTokens: number
+}
+
+/** Estimated cost in USD, or null when we have no pricing for the model. */
+export function estimateCost(usage: AgentUsage): number | null {
+	if (!isValidModelName(usage.modelName)) return null
+	const pricing = getAgentModelDefinition(usage.modelName).pricing
+	if (!pricing) return null
+	return (
+		(usage.inputTokens * pricing.input +
+			usage.outputTokens * pricing.output +
+			usage.cacheReadTokens * pricing.cacheRead +
+			usage.cacheWriteTokens * pricing.cacheWrite) /
+		1_000_000
+	)
 }

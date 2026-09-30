@@ -2,7 +2,7 @@ import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI, GoogleGenerativeAIProvider } from '@ai-sdk/google'
 import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai'
 import { LanguageModel, ModelMessage, streamText } from 'ai'
-import { AgentModelName, getAgentModelDefinition, isValidModelName } from '../../shared/models'
+import { AgentModelName, AgentUsage, getAgentModelDefinition, isValidModelName } from '../../shared/models'
 import { DebugPart } from '../../shared/schema/PromptPartDefinitions'
 import { AgentAction } from '../../shared/types/AgentAction'
 import { AgentPrompt } from '../../shared/types/AgentPrompt'
@@ -17,6 +17,9 @@ export class AgentService {
 	openai: OpenAIProvider
 	anthropic: AnthropicProvider
 	google: GoogleGenerativeAIProvider
+
+	/** Token usage of the most recent completed stream (for the client's cost meter) */
+	lastUsage: AgentUsage | null = null
 
 	constructor(env: Environment) {
 		this.openai = createOpenAI({ apiKey: env.OPENAI_API_KEY })
@@ -116,7 +119,7 @@ export class AgentService {
 		const openaiReasoningEffort = provider === 'openai.responses' ? 'none' : 'minimal'
 
 		try {
-			const { textStream } = streamText({
+			const result = streamText({
 				model,
 				messages,
 				maxOutputTokens: 8192,
@@ -145,6 +148,7 @@ export class AgentService {
 				},
 			})
 
+			const { textStream } = result
 			let buffer = canForceResponseStart ? '{"actions": [{"_type":' : ''
 			let cursor = 0
 			let maybeIncompleteAction: AgentAction | null = null
@@ -195,6 +199,8 @@ export class AgentService {
 				}
 			}
 
+			this.lastUsage = await readUsage(result, modelId).catch(() => null)
+
 			// If we've finished receiving events, but there's still an incomplete event, we need to complete it
 			if (maybeIncompleteAction) {
 				yield {
@@ -217,4 +223,19 @@ export class AgentService {
 function stripToJson(text: string): string {
 	const start = text.indexOf('{')
 	return start === -1 ? '' : text.slice(start)
+}
+
+async function readUsage(result: ReturnType<typeof streamText>, modelName: string): Promise<AgentUsage> {
+	const [usage, metadata] = await Promise.all([result.usage, result.providerMetadata])
+	const cacheRead = usage.cachedInputTokens ?? 0
+	const anthropicWrite = metadata?.anthropic?.cacheCreationInputTokens
+	const isAnthropic = metadata?.anthropic !== undefined
+	return {
+		modelName,
+		// Anthropic reports uncached input separately; other providers include cached tokens in inputTokens
+		inputTokens: Math.max(0, (usage.inputTokens ?? 0) - (isAnthropic ? 0 : cacheRead)),
+		outputTokens: usage.outputTokens ?? 0,
+		cacheReadTokens: cacheRead,
+		cacheWriteTokens: typeof anthropicWrite === 'number' ? anthropicWrite : 0,
+	}
 }

@@ -1,9 +1,11 @@
 import { uniqueId, useValue } from '@tldraw/editor'
-import { FormEventHandler, useCallback, useRef } from 'react'
+import { useCallback, useRef } from 'react'
 import { useAgent, useAgents, useTldrawAgentApp } from '../agent/TldrawAgentAppProvider'
 import { ChatHistory } from './chat-history/ChatHistory'
+import { ChatImage } from './chatAttachments'
 import { ChatInput } from './ChatInput'
 import { ChatSessionsMenu } from './ChatSessionsMenu'
+import { runSlashCommand } from './slashCommands'
 import { TodoList } from './TodoList'
 
 export function ChatPanel({ open, onToggle }: { open: boolean; onToggle: () => void }) {
@@ -13,29 +15,36 @@ export function ChatPanel({ open, onToggle }: { open: boolean; onToggle: () => v
 	const isDark = useValue('isDark', () => agent.editor.user.getIsDarkMode(), [agent.editor])
 	const inputRef = useRef<HTMLTextAreaElement>(null)
 
-	const handleSubmit = useCallback<FormEventHandler<HTMLFormElement>>(
-		async (e) => {
-			e.preventDefault()
-			if (!inputRef.current) return
-			const formData = new FormData(e.currentTarget)
-			const value = formData.get('input') as string
+	const handleSend = useCallback(
+		async (text: string, images: ChatImage[]): Promise<string | void> => {
+			let agentMessage = text
+			let display = text
 
-			// If the user's message is empty, just cancel the current request (if there is one)
-			if (value === '') {
-				agent.cancel()
-				return
+			if (text.startsWith('/') && images.length === 0) {
+				const result = await runSlashCommand(agent.editor, text)
+				if (result?.kind === 'local') return result.notice
+				if (result?.kind === 'agent') {
+					agentMessage = result.message
+					display = result.display
+				}
 			}
 
-			// Clear the chat input (context is cleared after it's captured in requestAgentActions)
-			inputRef.current.value = ''
+			if (images.length > 0) {
+				const what = images.length === 1 ? 'an image' : `${images.length} images`
+				agentMessage = `${text || 'Recreate this on the canvas.'}\n\n(The user attached ${what} to this message. If it's a sketch, whiteboard photo or screenshot of a diagram, recreate it on the canvas as clean, editable shapes: keep its structure and all its text, connect things with arrows bound to the shapes, and give it a tidy layout.)`
+				display = `${text || 'Recreate this on the canvas'} 📎 ${what}`
+			}
 
 			// Sending a new message to the agent should interrupt the current request
 			agent.interrupt({
 				input: {
-					agentMessages: [value],
+					agentMessages: [agentMessage],
+					userMessages: [display],
 					bounds: agent.editor.getViewportPageBounds(),
 					source: 'user',
 					contextItems: agent.context.getItems(),
+					// Images ride along as request data (sent as real images, not kept in chat history)
+					data: images.map((i) => i.dataUrl),
 				},
 			})
 		},
@@ -65,7 +74,7 @@ export function ChatPanel({ open, onToggle }: { open: boolean; onToggle: () => v
 			<ChatHistory agent={agent} />
 			<div className="chat-input-container">
 				<TodoList agent={agent} />
-				<ChatInput handleSubmit={handleSubmit} inputRef={inputRef} />
+				<ChatInput onSend={handleSend} onCancel={() => agent.cancel()} inputRef={inputRef} />
 			</div>
 		</div>
 	)

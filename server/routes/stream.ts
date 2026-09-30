@@ -30,6 +30,7 @@ router.post('/', async (req, res) => {
 		for await (const change of service.stream(req.body)) {
 			res.write(`data: ${JSON.stringify(change)}\n\n`)
 		}
+		if (service.lastUsage) res.write(`data: ${JSON.stringify({ usage: service.lastUsage })}\n\n`)
 	} catch (err: unknown) {
 		res.write(`data: ${JSON.stringify({ error: getErrorMessage(err) })}\n\n`)
 	}
