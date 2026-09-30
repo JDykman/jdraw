@@ -948,12 +948,20 @@ button.prompt-tag span {
 	color: var(--tl-color-text-1);
 }
 
-/* Floating back-to-pages button over the canvas */
-.back-to-pages-button {
+/* Floating Pages / History buttons over the canvas */
+.canvas-nav-buttons {
 	position: absolute;
 	top: 60px; /* Moved down to clear the tldraw top-left menu */
 	left: 8px;
 	z-index: 200; /* Above canvas but below menu overlays */
+	display: flex;
+	gap: 6px;
+	transition: top 0.2s ease;
+}
+.canvas-nav-buttons--menu-open {
+	top: 160px; /* Move down further to clear expanded menus */
+}
+.back-to-pages-button {
 	height: 32px;
 	padding: 0 12px;
 	font-size: 13px;
@@ -965,17 +973,26 @@ button.prompt-tag span {
 	background-color: var(--color-panel, #fff);
 	color: var(--color-text, #000);
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
-	transition: top 0.2s ease, background-color 0.1s ease;
+	transition: background-color 0.1s ease;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	gap: 6px;
 }
-.back-to-pages-button--menu-open {
-	top: 160px; /* Move down further to clear expanded menus */
-}
-.back-to-pages-button:hover {
+.back-to-pages-button:hover,
+.back-to-pages-button--active {
 	background-color: var(--color-low, #f5f5f5);
+}
+.canvas-nav-badge {
+	min-width: 18px;
+	height: 18px;
+	padding: 0 5px;
+	border-radius: 9px;
+	background: #f2994a;
+	color: #fff;
+	font-size: 11px;
+	line-height: 18px;
+	text-align: center;
 }
 
 /* Loading state */
@@ -987,6 +1004,60 @@ button.prompt-tag span {
 	justify-content: center;
 	font-size: 16px;
 	color: #666;
+}
+
+/* Page failed to load (sync connection rejected for good) */
+.page-load-error-screen {
+	position: fixed;
+	inset: 0;
+}
+.page-load-error {
+	position: fixed;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 24px;
+	text-align: center;
+	color: #333;
+	background: #f5f5f5;
+}
+.page-load-error h2 {
+	margin: 0;
+	font-size: 20px;
+}
+.page-load-error p {
+	margin: 0;
+	max-width: 420px;
+	color: #666;
+}
+.page-load-error-actions {
+	display: flex;
+	gap: 8px;
+	margin-top: 12px;
+}
+.page-load-error-button {
+	height: 34px;
+	padding: 0 16px;
+	border: 1px solid #ccc;
+	border-radius: 8px;
+	background: #fff;
+	color: #222;
+	font-size: 14px;
+	cursor: pointer;
+}
+.page-load-error-button:hover {
+	background: #eee;
+}
+.page-load-error-button--primary {
+	background: #2f80ed;
+	border-color: #2f80ed;
+	color: #fff;
+}
+.page-load-error-button--primary:hover {
+	background: #2569c7;
 }
 
 /* Login Page */

@@ -797,3 +797,20 @@ button.home-tag:hover {
 	font-size: 12px;
 	line-height: 1.35;
 }
+
+/* Unread comments on a card */
+.home-comment-badge {
+	display: inline-flex;
+	align-items: center;
+	height: 16px;
+	padding: 0 6px;
+	border-radius: 8px;
+	background: #f2994a;
+	color: #fff;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 16px;
+}
+.home-comment-badge--mention {
+	background: #2f80ed;
+}

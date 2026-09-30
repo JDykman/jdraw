@@ -15,6 +15,9 @@ jdraw is an AI-powered diagramming assistant built on top of [tldraw](https://gi
 - **Canvas linting** — The agent detects potential issues (overlapping text, text overflow, disconnected arrows) and can fix them automatically.
 - **Todo list** — The agent tracks its own tasks as it works through multi-step requests.
 - **Multi-model support** — Works with Anthropic, Google, and OpenAI models. Anthropic recommended for best results.
+- **Version history** — Pages are checkpointed automatically every 5 minutes while they change (kept 30 days) and on demand with a label (kept until deleted). The History panel restores any version (a "Before restore" version is saved first) and compares it against the current page in a diff viewer.
+- **Comments and @mentions** — Threaded comments pinned to shapes or canvas points (`Shift+C` or right-click → Add comment), with @mention autocomplete, resolve/reopen, a Comments panel, live updates for everyone on the page, and unread/mention badges on the homepage. Read-only shares can comment.
+- **Safe loading** — A page whose stored snapshot can't be loaded is never overwritten: the raw data is quarantined into its history and the page shows a recovery screen with an "Open history" action.
 
 ## Environment setup
 

@@ -10,12 +10,15 @@ import { db } from './db/db.js'
 import { authMiddleware } from './middleware/auth.js'
 import agentStateRouter from './routes/agentState.js'
 import authRouter from './routes/auth.js'
+import checkpointsRouter from './routes/checkpoints.js'
+import commentsRouter, { notificationsRouter } from './routes/comments.js'
 import keysRouter from './routes/keys.js'
 import pagesRouter from './routes/pages.js'
 import streamRouter from './routes/stream.js'
 import usersRouter from './routes/users.js'
 import { attachWebSocketHandler } from './sync/wsHandler.js'
-import { persistAllRooms } from './sync/roomManager.js'
+import { startCheckpointRetention } from './sync/checkpoints.js'
+import { shutdownRooms } from './sync/roomManager.js'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const PORT = Number(process.env.PORT ?? 3001)
@@ -45,6 +48,7 @@ if (process.env.NODE_ENV === 'production') {
 
 await bootstrapAdmin()
 startBackupSchedule()
+startCheckpointRetention()
 
 const app = express()
 app.use(express.json({ limit: '10mb' }))
@@ -54,6 +58,9 @@ app.use('/api/auth', authRouter)
 app.use('/api/users', usersRouter)
 app.use('/api/pages', pagesRouter)
 app.use('/api/pages', agentStateRouter)
+app.use('/api/pages', checkpointsRouter)
+app.use('/api/pages', commentsRouter)
+app.use('/api/notifications', notificationsRouter)
 app.use('/api/keys', keysRouter)
 app.use('/api/stream', authMiddleware, streamRouter)
 
@@ -73,11 +80,20 @@ if (IS_PROD) {
 const httpServer = createServer(app)
 attachWebSocketHandler(httpServer)
 
-process.on('SIGTERM', () => {
-	persistAllRooms()
+let shuttingDown = false
+function shutdown(signal: string) {
+	if (shuttingDown) return
+	shuttingDown = true
+	console.log(`${signal} received, persisting rooms and shutting down`)
+	// Flushes pending change timers and closes every room before the database closes
+	shutdownRooms()
 	db.close()
 	httpServer.close(() => process.exit(0))
-})
+	// Open sockets can keep close() from calling back; don't hang forever
+	setTimeout(() => process.exit(0), 5_000).unref()
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
 
 httpServer.listen(PORT, () => {
 	console.log(`jdraw server running on http://localhost:${PORT}`)

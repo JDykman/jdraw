@@ -27,7 +27,8 @@
 		"shared/format",
 		"shared/schema",
 		"shared/table",
-		"shared/types"
+		"shared/types",
+		"shared/sync"
 	],
 	"exclude": ["node_modules", "client"]
 }

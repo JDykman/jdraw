@@ -27,11 +27,20 @@ import {
 	TldrawAgentAppProvider,
 	useTldrawAgentAppFromEditor,
 } from './agent/TldrawAgentAppProvider'
+import { SNAPSHOT_LOAD_FAILED_REASON } from '../shared/sync/closeReasons'
 import { useAuth } from './auth/AuthContext'
+import { CanvasContextMenu } from './components/CanvasContextMenu'
 import { ChatPanel } from './components/ChatPanel'
 import { ChatPanelFallback } from './components/ChatPanelFallback'
 import { CustomHelperButtons } from './components/CustomHelperButtons'
 import { CollabBar, ReactionsOverlay } from './collab/CollabBar'
+import { $commentsPanelOpen, $openThreadCount, CommentsProvider } from './comments/commentsApi'
+import { handleCustomSyncMessage } from './comments/commentsBus'
+import { CommentsOverlay } from './comments/CommentsOverlay'
+import { CommentsPanel } from './comments/CommentsPanel'
+import { COMMENT_ICON_URL, CommentTool } from './comments/CommentTool'
+import { CompareDialog } from './history/CompareDialog'
+import { Checkpoint, HistoryPanel } from './history/HistoryPanel'
 import { getPresenceWithReaction } from './collab/reactions'
 import { PageThumbnailSync } from './pages/PageThumbnailSync'
 import { TemplateApplier } from './pages/TemplateApplier'
@@ -41,7 +50,6 @@ import { TargetAreaTool } from './tools/TargetAreaTool'
 import { TargetShapeTool } from './tools/TargetShapeTool'
 import {
 	TABLE_ICON_URL,
-	TableContextMenu,
 	TableShapeTool,
 	TableShapeUtil,
 	TableToolbar,
@@ -53,11 +61,11 @@ import {
 // Customize tldraw's styles to play to the agent's strengths
 DefaultSizeStyle.setDefaultValue('s')
 
-const tools = [TargetShapeTool, TargetAreaTool, TableShapeTool]
+const tools = [TargetShapeTool, TargetAreaTool, TableShapeTool, CommentTool]
 // useSync builds its schema from these utils and does NOT add the defaults itself,
 // so the defaults must be included or the schema is missing the built-in shapes.
 const shapeUtils = [...defaultShapeUtils, TableShapeUtil]
-const assetUrls = { icons: { 'tool-table': TABLE_ICON_URL } }
+const assetUrls = { icons: { 'tool-table': TABLE_ICON_URL, 'tool-comment': COMMENT_ICON_URL } }
 const overrides: TLUiOverrides = {
 	// Delete/Backspace with a table row/column selected deletes that row/column, not the table.
 	actions: (editor, actions) => {
@@ -82,6 +90,18 @@ const overrides: TLUiOverrides = {
 				icon: 'tool-table',
 				onSelect() {
 					editor.setCurrentTool('table')
+				},
+			},
+			comment: {
+				id: 'comment',
+				label: 'Comment',
+				// Shift+C: plain C picks an area for the agent, and tldraw uses the other letters
+				kbd: 'shift+c',
+				icon: 'tool-comment',
+				// Read-only shares can comment even though they can't draw
+				readonlyOk: true,
+				onSelect() {
+					editor.setCurrentTool('comment')
 				},
 			},
 			'target-area': {
@@ -109,10 +129,12 @@ const overrides: TLUiOverrides = {
 function Toolbar() {
 	const tools = useTools()
 	const isTableSelected = useIsToolSelected(tools['table'])
+	const isCommentSelected = useIsToolSelected(tools['comment'])
 	return (
 		<DefaultToolbar>
 			<DefaultToolbarContent />
 			<TldrawUiMenuToolItem toolId="table" isSelected={isTableSelected} />
+			<TldrawUiMenuToolItem toolId="comment" isSelected={isCommentSelected} />
 		</DefaultToolbar>
 	)
 }
@@ -150,40 +172,158 @@ function Overlays() {
 	)
 }
 
-function BackToPagesButton({ onBack, editor }: { onBack: () => void; editor: any }) {
+function CanvasNavButtons({
+	onBack,
+	onHistory,
+	historyOpen,
+	onComments,
+	commentsOpen,
+	editor,
+}: {
+	onBack?: () => void
+	onHistory: () => void
+	historyOpen: boolean
+	onComments: () => void
+	commentsOpen: boolean
+	editor: any
+}) {
 	const isMenuOpen = useValue('isMenuOpen', () => editor.getInstanceState().isMenuOpen, [editor])
+	const openThreads = useValue($openThreadCount)
 
 	return (
-		<button
-			className={`back-to-pages-button${isMenuOpen ? ' back-to-pages-button--menu-open' : ''}`}
-			onClick={onBack}
-			title="Back to pages"
-		>
-			<svg
-				width="14"
-				height="14"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				strokeWidth="3"
-				strokeLinecap="round"
-				strokeLinejoin="round"
-				style={{ display: 'block' }}
+		<div className={`canvas-nav-buttons${isMenuOpen ? ' canvas-nav-buttons--menu-open' : ''}`}>
+			{onBack && (
+				<button className="back-to-pages-button" onClick={onBack} title="Back to pages">
+					<svg
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="3"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						style={{ display: 'block' }}
+					>
+						<path d="M19 12H5M12 19l-7-7 7-7" />
+					</svg>
+					<span>Pages</span>
+				</button>
+			)}
+			<button
+				className={`back-to-pages-button${historyOpen ? ' back-to-pages-button--active' : ''}`}
+				onClick={onHistory}
+				title="Version history"
+				aria-pressed={historyOpen}
 			>
-				<path d="M19 12H5M12 19l-7-7 7-7" />
-			</svg>
-			<span>Pages</span>
-		</button>
+				<svg
+					width="14"
+					height="14"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2.5"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					style={{ display: 'block' }}
+				>
+					<circle cx="12" cy="12" r="9" />
+					<path d="M12 7v5l3 2" />
+				</svg>
+				<span>History</span>
+			</button>
+			<button
+				className={`back-to-pages-button${commentsOpen ? ' back-to-pages-button--active' : ''}`}
+				onClick={onComments}
+				title="Comments"
+				aria-pressed={commentsOpen}
+			>
+				<svg
+					width="14"
+					height="14"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2.5"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					style={{ display: 'block' }}
+				>
+					<path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H6a2 2 0 0 1-2-2z" />
+				</svg>
+				<span>Comments</span>
+				{openThreads > 0 && <span className="canvas-nav-badge">{openThreads}</span>}
+			</button>
+		</div>
+	)
+}
+
+/**
+ * Shown instead of the canvas when the sync connection is rejected for good. The server closes
+ * with a fatal code when a page's stored snapshot can't be loaded (the data is quarantined, not
+ * lost), so retrying would be pointless.
+ */
+function PageLoadError({
+	error,
+	onBack,
+	onOpenHistory,
+}: {
+	error: Error
+	onBack?: () => void
+	onOpenHistory?: () => void
+}) {
+	const reason = (error as { reason?: string }).reason
+	const loadFailed = reason === SNAPSHOT_LOAD_FAILED_REASON
+	return (
+		<div className="page-load-error" role="alert">
+			<h2>{loadFailed ? 'This page couldn\u2019t be loaded.' : 'Couldn\u2019t connect to this page.'}</h2>
+			<p>
+				{loadFailed
+					? 'Your data was preserved. The stored version was set aside because it failed to load.'
+					: reason ?? error.message}
+			</p>
+			<div className="page-load-error-actions">
+				{onBack && (
+					<button className="page-load-error-button" onClick={onBack}>
+						Back
+					</button>
+				)}
+				{loadFailed && onOpenHistory && (
+					<button className="page-load-error-button page-load-error-button--primary" onClick={onOpenHistory}>
+						Open history
+					</button>
+				)}
+			</div>
+		</div>
 	)
 }
 
 interface AppProps {
 	pageId: string
 	onBack?(): void
+	/** Remount the page session, e.g. after restoring a version on the load-error screen. */
+	onReload?(): void
 }
 
-function App({ pageId, onBack }: AppProps) {
+function App({ pageId, onBack, onReload }: AppProps) {
 	const [app, setApp] = useState<TldrawAgentApp | null>(null)
+	const [historyOpen, setHistoryOpen] = useState(false)
+	const closeHistory = useCallback(() => setHistoryOpen(false), [])
+	const [compareTarget, setCompareTarget] = useState<Checkpoint | null>(null)
+	const closeCompare = useCallback(() => setCompareTarget(null), [])
+	const commentsOpen = useValue($commentsPanelOpen)
+	// History and Comments share the same spot, so opening one closes the other
+	const toggleHistory = useCallback(() => {
+		setHistoryOpen((o) => {
+			if (!o) $commentsPanelOpen.set(false)
+			return !o
+		})
+	}, [])
+	const toggleComments = useCallback(() => {
+		const next = !$commentsPanelOpen.get()
+		$commentsPanelOpen.set(next)
+		if (next) setHistoryOpen(false)
+	}, [])
 	const [sidebarOpen, setSidebarOpen] = useState(() => {
 		const saved = localStorage.getItem('jdraw:sidebarOpen')
 		return saved !== null ? saved === 'true' : true
@@ -255,7 +395,15 @@ function App({ pageId, onBack }: AppProps) {
 		[]
 	)
 
-	const store = useSync({ uri: wsUri, userInfo, assets, shapeUtils, getUserPresence: getPresenceWithReaction })
+	const store = useSync({
+		uri: wsUri,
+		userInfo,
+		assets,
+		shapeUtils,
+		getUserPresence: getPresenceWithReaction,
+		// Server-side notifications (e.g. comment changes) arrive here
+		onCustomMessageReceived: handleCustomSyncMessage,
+	})
 
 	const components: TLComponents = useMemo(
 		() => ({
@@ -263,7 +411,7 @@ function App({ pageId, onBack }: AppProps) {
 			Overlays,
 			LoadingScreen,
 			Toolbar,
-			ContextMenu: TableContextMenu,
+			ContextMenu: CanvasContextMenu,
 			TopPanel: CollabBar,
 			// The collab bar lists people and handles follow; tldraw's people menu would duplicate it
 			SharePanel: null,
@@ -274,11 +422,30 @@ function App({ pageId, onBack }: AppProps) {
 					<PageThumbnailSync pageId={pageId} />
 					<TemplateApplier pageId={pageId} />
 					<ReactionsOverlay />
+					<CommentsOverlay />
 				</>
 			),
 		}),
 		[pageId, handleUnmount]
 	)
+
+	if (store.status === 'error') {
+		return (
+			<div className="page-load-error-screen">
+				<PageLoadError error={store.error} onBack={onBack} onOpenHistory={() => setHistoryOpen(true)} />
+				{historyOpen && (
+					<HistoryPanel
+						pageId={pageId}
+						onClose={closeHistory}
+						onRestored={() => {
+							setHistoryOpen(false)
+							onReload?.()
+						}}
+					/>
+				)}
+			</div>
+		)
+	}
 
 	return (
 		<TldrawUiToastsProvider>
@@ -287,20 +454,38 @@ function App({ pageId, onBack }: AppProps) {
 				style={{ background: '#f0f0f0' }}
 			>
 				<div className="tldraw-canvas" style={{ background: 'white' }}>
-					<ErrorBoundary fallback={(err: any) => <div className="app-loading">Canvas Crash: {err.message}</div>}>
-						<Tldraw
-							store={store}
-							user={tldrawUser}
-							onMount={setupTableShape}
-							shapeUtils={shapeUtils}
-							assetUrls={assetUrls}
-							tools={tools}
-							overrides={overrides}
-							components={components}
-							licenseKey="tldraw-2031-04-28/WyJHVWxTbGFYNyIsWyIqLmpkcmF3Lm1iamFrZS5jb20iXSw5LCIyMDMxLTA0LTI4Il0.d0WjSqelMluLq8iDFR2dAYd7Ft39qxDQ4d+135Rskj2FdG+g/E11xsBQ+9vyyO0BwWnBa6FD6YwrGuReBKEVtA"
-						/>
-					</ErrorBoundary>
-					{onBack && app && <BackToPagesButton onBack={onBack} editor={app.editor} />}
+					<CommentsProvider pageId={pageId}>
+						<ErrorBoundary fallback={(err: any) => <div className="app-loading">Canvas Crash: {err.message}</div>}>
+							<Tldraw
+								store={store}
+								user={tldrawUser}
+								onMount={setupTableShape}
+								shapeUtils={shapeUtils}
+								assetUrls={assetUrls}
+								tools={tools}
+								overrides={overrides}
+								components={components}
+								licenseKey="tldraw-2031-04-28/WyJHVWxTbGFYNyIsWyIqLmpkcmF3Lm1iamFrZS5jb20iXSw5LCIyMDMxLTA0LTI4Il0.d0WjSqelMluLq8iDFR2dAYd7Ft39qxDQ4d+135Rskj2FdG+g/E11xsBQ+9vyyO0BwWnBa6FD6YwrGuReBKEVtA"
+							/>
+						</ErrorBoundary>
+						{app && (
+							<CanvasNavButtons
+								onBack={onBack}
+								onHistory={toggleHistory}
+								historyOpen={historyOpen}
+								onComments={toggleComments}
+								commentsOpen={commentsOpen}
+								editor={app.editor}
+							/>
+						)}
+						{historyOpen && (
+							<HistoryPanel pageId={pageId} onClose={closeHistory} onCompare={app ? setCompareTarget : undefined} />
+						)}
+						{compareTarget && app && (
+							<CompareDialog pageId={pageId} checkpoint={compareTarget} editor={app.editor} onClose={closeCompare} />
+						)}
+						{commentsOpen && app && <CommentsPanel editor={app.editor} />}
+					</CommentsProvider>
 				</div>
 				<ErrorBoundary fallback={ChatPanelFallback}>
 					{app && (

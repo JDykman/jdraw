@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { CommentBadge } from './CommentBadge'
 import { PageThumbnail } from './PageThumbnail'
 import { formatRelativeTime, PageSummary } from './pagesApi'
 
@@ -106,6 +107,7 @@ export function PageCard({
 				</div>
 				<div className="home-card-meta">
 					{unseen && <span className="home-unseen-dot" aria-label="Changed since you last looked" />}
+					<CommentBadge unread={page.unreadComments} mentions={page.unreadMentions} />
 					<span>
 						{editedBy ? `${editedBy} edited` : 'Edited'} {formatRelativeTime(editedAt)}
 					</span>

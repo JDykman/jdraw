@@ -17,6 +17,9 @@ export interface PageSummary {
 	pinned: boolean
 	thumbnailUpdatedAt: number | null
 	tags: string[]
+	/** Comments by other people since this user last opened the page, and how many mention them */
+	unreadComments: number
+	unreadMentions: number
 }
 
 /** Authenticated JSON fetch against the jdraw API. Throws with the server's error message. */

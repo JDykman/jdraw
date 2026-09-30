@@ -1,23 +1,15 @@
-import {
-	DefaultContextMenu,
-	DefaultContextMenuContent,
-	TldrawUiMenuGroup,
-	TldrawUiMenuItem,
-	TLUiContextMenuProps,
-	useEditor,
-	useValue,
-} from 'tldraw'
-import { DiagramContextMenuItems } from '../../diagram/DiagramMenu'
+import { TldrawUiMenuGroup, TldrawUiMenuItem, useEditor, useValue } from 'tldraw'
 import { copySelectedTablesAsSql, getSelectedTables } from './tableSqlExport'
 import { copyTableAs, getSelectedTable, runTableOp } from './TableToolbar'
 
-export function TableContextMenu(props: TLUiContextMenuProps) {
+/** Table-specific context menu groups; rendered by CanvasContextMenu when a table is selected. */
+export function TableContextMenuItems() {
 	const editor = useEditor()
 	const table = useValue('selected table', () => getSelectedTable(editor), [editor])
 	// Multi-table selections (e.g. an ER diagram with its arrows) export together as one script.
 	const tableCount = useValue('selected table count', () => getSelectedTables(editor).length, [editor])
 	return (
-		<DefaultContextMenu {...props}>
+		<>
 			{table && (
 				<TldrawUiMenuGroup id="table">
 					<TldrawUiMenuItem id="table-row-add" label="Insert row" onSelect={() => runTableOp(editor, 'row-add')} />
@@ -51,8 +43,6 @@ export function TableContextMenu(props: TLUiContextMenuProps) {
 					/>
 				</TldrawUiMenuGroup>
 			)}
-			<DiagramContextMenuItems />
-			<DefaultContextMenuContent />
-		</DefaultContextMenu>
+		</>
 	)
 }

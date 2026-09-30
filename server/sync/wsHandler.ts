@@ -1,5 +1,7 @@
 import { IncomingMessage, Server } from 'http'
+import { TLSyncErrorCloseEventCode } from '@tldraw/sync-core'
 import { WebSocketServer } from 'ws'
+import { SNAPSHOT_LOAD_FAILED_REASON } from '../../shared/sync/closeReasons.js'
 import { AuthUser, verifyAccessToken, verifyRefreshToken } from '../middleware/auth.js'
 import { canAccess } from '../routes/pages.js'
 import { getOrCreateRoom, recordConnection, recordDisconnection } from './roomManager.js'
@@ -73,6 +75,12 @@ export function attachWebSocketHandler(httpServer: Server) {
 
 		wss.handleUpgrade(req, socket, head, (ws) => {
 			const room = getOrCreateRoom(pageId)
+			if (!room) {
+				// The stored snapshot couldn't be loaded (and was quarantined). tldraw's client treats
+				// this close code as fatal, so it surfaces the reason instead of reconnecting forever.
+				ws.close(TLSyncErrorCloseEventCode, SNAPSHOT_LOAD_FAILED_REASON)
+				return
+			}
 			let didRecordDisconnection = false
 
 			room.handleSocketConnect({
