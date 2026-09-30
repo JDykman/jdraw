@@ -4,11 +4,13 @@ Four tickets from the jdraw roadmap, chosen for Fable because a subtle mistake l
 
 ## Context
 
+Base your work on the `claude/zen-clarke-qeu6sa` branch (or `master` once it's merged): it already has the homepage, page metadata, backups, diagram engine and AI features, and it touches `roomManager.ts`, `schema.sql` and `App.tsx`.
+
 jdraw is a self-hosted tldraw 4.4.1 canvas with an AI agent, used by the owner and a few friends (single instance, a handful of users — no need to design for scale).
 
-- **Client:** React 19 + Vite, `client/`. Canvas in `client/App.tsx`, page list in `client/pages/PageListSidebar.tsx`, auth via `useAuth()` (`getToken()` for `Authorization: Bearer`).
+- **Client:** React 19 + Vite, `client/`. Canvas in `client/App.tsx`, homepage in `client/pages/HomePage.tsx` (cards: `PageCard.tsx`, API hook: `pagesApi.ts`), auth via `useAuth()` (`getToken()` for `Authorization: Bearer`).
 - **Server:** Express 5 + `ws`, `server/`. SQLite via better-sqlite3 (synchronous), schema in `server/db/schema.sql` (applied with `CREATE TABLE IF NOT EXISTS` on every boot — there is no migration system, so new tables go in that file and column changes need an explicit, idempotent `ALTER` guarded in `server/db/db.ts`).
-- **Sync:** `@tldraw/sync-core` `TLSocketRoom`, one room per page, in `server/sync/roomManager.ts`; auth + per-page access in `server/sync/wsHandler.ts` (`canAccess()` from `server/routes/pages.ts` returns `{ allowed, canEdit }`).
+- **Sync:** `@tldraw/sync-core` `TLSocketRoom`, one room per page, in `server/sync/roomManager.ts`; auth + per-page access in `server/sync/wsHandler.ts` (`canAccess()` from `server/routes/pages.ts` returns `{ allowed, canEdit }`). Sessions carry `SessionMeta` (`{ userId, canEdit }`); rooms record the last editor for `pages.last_edited_by/at`, and `getPageSnapshotJson()` returns a page's latest document (live room or stored). Keep those working.
 - **Persistence today:** one row per page in `page_snapshots` holding `JSON.stringify(room.getCurrentSnapshot())`, rewritten 1s after each change and on last disconnect/eviction/SIGTERM.
 - **Custom shape:** `table` (`shared/table/tableShapeProps.ts`). Any schema you build server-side must include it (see `roomManager.ts`).
 - **Deploy:** `Containerfile`, DB at `/data/jdraw.db`, pushed to GHCR on `master`.
@@ -17,7 +19,8 @@ jdraw is a self-hosted tldraw 4.4.1 canvas with an AI agent, used by the owner a
 
 - Tabs, no semicolons, single quotes. Server imports use `.js` extensions (ESM). Match surrounding comment density.
 - Every API route checks access with `canAccess()` / owner checks the way `server/routes/pages.ts` does.
-- No test runner exists. Verify with `npx tsc --noEmit -p tsconfig.json` and `npx tsc --noEmit -p tsconfig.server.json`, plus `npm run build`. For server logic, add focused tests with `node:test` run through `tsx` (no new dependencies) under `server/**/__tests__/`, and add an `npm test` script.
+- Verify with `npm run typecheck`, `npm test` and `npm run build`. `npm test` runs `node:test` suites through `tsx` from any `client|server|shared|worker/**/__tests__/*.test.ts` (examples: `client/diagram/__tests__`, `worker/__tests__`). Add focused tests for server logic under `server/**/__tests__/` without new dependencies.
+- Column additions go through `ensureColumn()` in `server/db/db.ts`; new tables go in `schema.sql`.
 - `scripts/test_snapshots.mjs` builds a schema without the `table` shape — fix that if you touch it.
 
 ### Decisions already made (don't reopen)
@@ -203,7 +206,7 @@ Adjust the schema if you find a better shape, but keep threads, mentions and rea
 - **Deleted shapes:** the thread keeps rendering at `last_x`/`last_y` with a "shape deleted" hint. The client updates `last_x/last_y` when it notices the shape moved (throttled), so the fallback position is recent.
 - **Thread popover:** replies, @mention autocomplete (users with access), resolve/reopen, edit/delete per the permissions above.
 - **Comments panel:** lists all threads on the page, filterable by open/resolved/mentions-me; clicking one zooms to it.
-- **Unread:** opening the page (or the panel) marks it read. The page list (`client/pages/PageListSidebar.tsx`) shows an unread count per page and an @ badge for mentions. The homepage is being redesigned in a separate ticket (JD-6), so keep the badge a small self-contained component.
+- **Unread:** opening the page (or the panel) marks it read. Each homepage card (`client/pages/PageCard.tsx`) shows an unread comment count and an @ badge for mentions; add the counts to `GET /api/pages` (or fetch `/api/notifications` in `usePages`) and keep the badge a small self-contained component next to the existing "changed since you last looked" dot.
 - Hide markers during export/screenshot so they don't leak into images or AI screenshots (`client/parts/ScreenshotPartUtil.ts` uses `editor.toImage`, which only renders shapes, so this is likely already fine — verify).
 
 ### Acceptance
