@@ -1,8 +1,9 @@
 import { RoomSnapshot, TLSocketRoom } from '@tldraw/sync-core'
 import { TLRecord } from '@tldraw/tlschema'
 import { createTLSchema, defaultShapeSchemas } from '@tldraw/tlschema'
+import { isEqual } from '@tldraw/utils'
 import { tableShapeSchema } from '../../shared/table/tableShapeProps.js'
-import { quarantineSnapshot } from '../db/checkpoints.js'
+import { insertCheckpoint, quarantineSnapshot } from '../db/checkpoints.js'
 import { db } from '../db/db.js'
 
 export interface SessionMeta {
@@ -19,6 +20,9 @@ interface ActiveRoom {
 	connections: number
 	persistTimer: ReturnType<typeof setTimeout> | null
 	changePersistTimer: ReturnType<typeof setTimeout> | null
+	// Auto checkpoints: one interval per room, and the doc clock of the last checkpoint taken
+	checkpointTimer: ReturnType<typeof setInterval> | null
+	lastCheckpointClock: number
 }
 
 export type SnapshotLoadResult =
@@ -38,6 +42,7 @@ export const schema = createTLSchema({
 
 const ROOM_EVICTION_DELAY_MS = 30_000
 const CHANGE_PERSIST_DELAY_MS = 1_000
+export const AUTO_CHECKPOINT_INTERVAL_MS = 5 * 60 * 1000
 
 /** Read and parse a page's stored snapshot without building a room. */
 export function readStoredSnapshot(pageId: string): SnapshotLoadResult {
@@ -97,14 +102,42 @@ export function buildRoom(
 	return room
 }
 
-/** Validate a snapshot by building a throwaway room from it. Returns the migrated snapshot. */
-export function migrateSnapshot(snapshot: RoomSnapshot): RoomSnapshot {
+/**
+ * Validate a snapshot by building a throwaway room from it. Returns the migrated snapshot; with
+ * no snapshot, the empty document a new page starts from.
+ */
+export function migrateSnapshot(snapshot: RoomSnapshot | undefined): RoomSnapshot {
 	const room = buildRoom('validation', snapshot)
 	try {
 		return room.getCurrentSnapshot()
 	} finally {
 		room.close()
 	}
+}
+
+/**
+ * Replace a live room's document with a snapshot. Mirrors sync-core's loadSnapshotIntoStorage,
+ * which TLSocketRoom.loadSnapshot uses but which is broken in 4.4.1 (it calls an `assert` it
+ * never imports). Runs as one storage transaction, so the room broadcasts the resulting puts
+ * and deletes to every connected session as an ordinary patch, and a throw rolls it back.
+ * The snapshot should already be migrated (see migrateSnapshot).
+ */
+export function loadSnapshotIntoRoom(room: TLSocketRoom<TLRecord, SessionMeta>, snapshot: RoomSnapshot) {
+	if (!snapshot.schema) throw new Error('Snapshot has no schema')
+	room.storage.transaction((txn) => {
+		const keep = new Set<string>()
+		for (const doc of snapshot.documents) {
+			const id = doc.state.id
+			keep.add(id)
+			if (isEqual(txn.get(id), doc.state)) continue
+			txn.set(id, doc.state as TLRecord)
+		}
+		for (const id of [...txn.keys()]) {
+			if (!keep.has(id)) txn.delete(id)
+		}
+		txn.setSchema(snapshot.schema!)
+		schema.migrateStorage(txn)
+	})
 }
 
 function writeRoomSnapshot(pageId: string) {
@@ -187,8 +220,43 @@ export function getOrCreateRoom(pageId: string): TLSocketRoom<TLRecord, SessionM
 		connections: 0,
 		persistTimer: null,
 		changePersistTimer: null,
+		checkpointTimer: setInterval(() => autoCheckpoint(pageId), AUTO_CHECKPOINT_INTERVAL_MS),
+		// Nothing has changed since load, so there is nothing to checkpoint yet
+		lastCheckpointClock: room.getCurrentDocumentClock(),
 	})
 	return room
+}
+
+/**
+ * Take an 'auto' checkpoint of a live room if its document changed since the last checkpoint.
+ * Runs on the room's interval and on eviction. Returns true if one was taken.
+ */
+export function autoCheckpoint(pageId: string): boolean {
+	const entry = rooms.get(pageId)
+	if (!entry || !entry.loadedOk || failedLoads.has(pageId)) return false
+	const clock = entry.room.getCurrentDocumentClock()
+	if (clock === entry.lastCheckpointClock) return false
+	try {
+		// The page may have been deleted while the room was open
+		if (!db.prepare('SELECT 1 FROM pages WHERE id = ?').get(pageId)) return false
+		insertCheckpoint({
+			pageId,
+			kind: 'auto',
+			snapshot: JSON.stringify(entry.room.getCurrentSnapshot()),
+			docClock: clock,
+		})
+		entry.lastCheckpointClock = clock
+		return true
+	} catch (e) {
+		console.error(`Failed to checkpoint room ${pageId}:`, e)
+		return false
+	}
+}
+
+/** Mark the live room's current state as checkpointed (after a manual checkpoint or a restore). */
+export function markRoomCheckpointed(pageId: string) {
+	const entry = rooms.get(pageId)
+	if (entry) entry.lastCheckpointClock = entry.room.getCurrentDocumentClock()
 }
 
 export function getActiveRoom(pageId: string): TLSocketRoom<TLRecord, SessionMeta> | null {
@@ -236,7 +304,12 @@ export function evictRoom(pageId: string) {
 		clearTimeout(entry.persistTimer)
 		entry.persistTimer = null
 	}
+	if (entry.checkpointTimer) {
+		clearInterval(entry.checkpointTimer)
+		entry.checkpointTimer = null
+	}
 	persistRoomNow(pageId)
+	autoCheckpoint(pageId)
 	rooms.delete(pageId)
 	entry.room.close()
 }

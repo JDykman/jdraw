@@ -80,3 +80,42 @@ export function geoShape(id: string, text = '', x = 0) {
 		},
 	}
 }
+
+/** A current-version table shape (2 rows x 2 columns). */
+export function tableShape(id: string) {
+	return {
+		id,
+		typeName: 'shape',
+		type: 'table',
+		x: 0,
+		y: 0,
+		rotation: 0,
+		index: 'a2',
+		parentId: 'page:page',
+		isLocked: false,
+		opacity: 1,
+		meta: {},
+		props: {
+			w: 200,
+			h: 80,
+			rowIds: ['r0', 'r1'],
+			colIds: ['c0', 'c1'],
+			colWidths: [100, 100],
+			rowHeights: [40, 40],
+			cells: [
+				['a', 'b'],
+				['c', 'd'],
+			],
+			headerRow: true,
+			title: '',
+			showTitle: false,
+			colAlign: [null, null],
+			colMono: [false, false],
+			color: 'black',
+			fill: 'none',
+			size: 'm',
+			font: 'draw',
+			textAlign: 'start',
+		},
+	}
+}

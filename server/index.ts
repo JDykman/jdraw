@@ -10,11 +10,13 @@ import { db } from './db/db.js'
 import { authMiddleware } from './middleware/auth.js'
 import agentStateRouter from './routes/agentState.js'
 import authRouter from './routes/auth.js'
+import checkpointsRouter from './routes/checkpoints.js'
 import keysRouter from './routes/keys.js'
 import pagesRouter from './routes/pages.js'
 import streamRouter from './routes/stream.js'
 import usersRouter from './routes/users.js'
 import { attachWebSocketHandler } from './sync/wsHandler.js'
+import { startCheckpointRetention } from './sync/checkpoints.js'
 import { shutdownRooms } from './sync/roomManager.js'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -45,6 +47,7 @@ if (process.env.NODE_ENV === 'production') {
 
 await bootstrapAdmin()
 startBackupSchedule()
+startCheckpointRetention()
 
 const app = express()
 app.use(express.json({ limit: '10mb' }))
@@ -54,6 +57,7 @@ app.use('/api/auth', authRouter)
 app.use('/api/users', usersRouter)
 app.use('/api/pages', pagesRouter)
 app.use('/api/pages', agentStateRouter)
+app.use('/api/pages', checkpointsRouter)
 app.use('/api/keys', keysRouter)
 app.use('/api/stream', authMiddleware, streamRouter)
 

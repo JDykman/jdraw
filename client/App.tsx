@@ -33,6 +33,7 @@ import { ChatPanel } from './components/ChatPanel'
 import { ChatPanelFallback } from './components/ChatPanelFallback'
 import { CustomHelperButtons } from './components/CustomHelperButtons'
 import { CollabBar, ReactionsOverlay } from './collab/CollabBar'
+import { HistoryPanel } from './history/HistoryPanel'
 import { getPresenceWithReaction } from './collab/reactions'
 import { PageThumbnailSync } from './pages/PageThumbnailSync'
 import { TemplateApplier } from './pages/TemplateApplier'
@@ -151,30 +152,62 @@ function Overlays() {
 	)
 }
 
-function BackToPagesButton({ onBack, editor }: { onBack: () => void; editor: any }) {
+function CanvasNavButtons({
+	onBack,
+	onHistory,
+	historyOpen,
+	editor,
+}: {
+	onBack?: () => void
+	onHistory: () => void
+	historyOpen: boolean
+	editor: any
+}) {
 	const isMenuOpen = useValue('isMenuOpen', () => editor.getInstanceState().isMenuOpen, [editor])
 
 	return (
-		<button
-			className={`back-to-pages-button${isMenuOpen ? ' back-to-pages-button--menu-open' : ''}`}
-			onClick={onBack}
-			title="Back to pages"
-		>
-			<svg
-				width="14"
-				height="14"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				strokeWidth="3"
-				strokeLinecap="round"
-				strokeLinejoin="round"
-				style={{ display: 'block' }}
+		<div className={`canvas-nav-buttons${isMenuOpen ? ' canvas-nav-buttons--menu-open' : ''}`}>
+			{onBack && (
+				<button className="back-to-pages-button" onClick={onBack} title="Back to pages">
+					<svg
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="3"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						style={{ display: 'block' }}
+					>
+						<path d="M19 12H5M12 19l-7-7 7-7" />
+					</svg>
+					<span>Pages</span>
+				</button>
+			)}
+			<button
+				className={`back-to-pages-button${historyOpen ? ' back-to-pages-button--active' : ''}`}
+				onClick={onHistory}
+				title="Version history"
+				aria-pressed={historyOpen}
 			>
-				<path d="M19 12H5M12 19l-7-7 7-7" />
-			</svg>
-			<span>Pages</span>
-		</button>
+				<svg
+					width="14"
+					height="14"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2.5"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					style={{ display: 'block' }}
+				>
+					<circle cx="12" cy="12" r="9" />
+					<path d="M12 7v5l3 2" />
+				</svg>
+				<span>History</span>
+			</button>
+		</div>
 	)
 }
 
@@ -183,7 +216,15 @@ function BackToPagesButton({ onBack, editor }: { onBack: () => void; editor: any
  * with a fatal code when a page's stored snapshot can't be loaded (the data is quarantined, not
  * lost), so retrying would be pointless.
  */
-function PageLoadError({ error, onBack }: { error: Error; onBack?: () => void }) {
+function PageLoadError({
+	error,
+	onBack,
+	onOpenHistory,
+}: {
+	error: Error
+	onBack?: () => void
+	onOpenHistory?: () => void
+}) {
 	const reason = (error as { reason?: string }).reason
 	const loadFailed = reason === SNAPSHOT_LOAD_FAILED_REASON
 	return (
@@ -200,6 +241,11 @@ function PageLoadError({ error, onBack }: { error: Error; onBack?: () => void })
 						Back
 					</button>
 				)}
+				{loadFailed && onOpenHistory && (
+					<button className="page-load-error-button page-load-error-button--primary" onClick={onOpenHistory}>
+						Open history
+					</button>
+				)}
 			</div>
 		</div>
 	)
@@ -208,10 +254,14 @@ function PageLoadError({ error, onBack }: { error: Error; onBack?: () => void })
 interface AppProps {
 	pageId: string
 	onBack?(): void
+	/** Remount the page session, e.g. after restoring a version on the load-error screen. */
+	onReload?(): void
 }
 
-function App({ pageId, onBack }: AppProps) {
+function App({ pageId, onBack, onReload }: AppProps) {
 	const [app, setApp] = useState<TldrawAgentApp | null>(null)
+	const [historyOpen, setHistoryOpen] = useState(false)
+	const closeHistory = useCallback(() => setHistoryOpen(false), [])
 	const [sidebarOpen, setSidebarOpen] = useState(() => {
 		const saved = localStorage.getItem('jdraw:sidebarOpen')
 		return saved !== null ? saved === 'true' : true
@@ -309,7 +359,21 @@ function App({ pageId, onBack }: AppProps) {
 	)
 
 	if (store.status === 'error') {
-		return <PageLoadError error={store.error} onBack={onBack} />
+		return (
+			<div className="page-load-error-screen">
+				<PageLoadError error={store.error} onBack={onBack} onOpenHistory={() => setHistoryOpen(true)} />
+				{historyOpen && (
+					<HistoryPanel
+						pageId={pageId}
+						onClose={closeHistory}
+						onRestored={() => {
+							setHistoryOpen(false)
+							onReload?.()
+						}}
+					/>
+				)}
+			</div>
+		)
 	}
 
 	return (
@@ -332,7 +396,15 @@ function App({ pageId, onBack }: AppProps) {
 							licenseKey="tldraw-2031-04-28/WyJHVWxTbGFYNyIsWyIqLmpkcmF3Lm1iamFrZS5jb20iXSw5LCIyMDMxLTA0LTI4Il0.d0WjSqelMluLq8iDFR2dAYd7Ft39qxDQ4d+135Rskj2FdG+g/E11xsBQ+9vyyO0BwWnBa6FD6YwrGuReBKEVtA"
 						/>
 					</ErrorBoundary>
-					{onBack && app && <BackToPagesButton onBack={onBack} editor={app.editor} />}
+					{app && (
+						<CanvasNavButtons
+							onBack={onBack}
+							onHistory={() => setHistoryOpen((o) => !o)}
+							historyOpen={historyOpen}
+							editor={app.editor}
+						/>
+					)}
+					{historyOpen && <HistoryPanel pageId={pageId} onClose={closeHistory} />}
 				</div>
 				<ErrorBoundary fallback={ChatPanelFallback}>
 					{app && (

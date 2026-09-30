@@ -1,0 +1,177 @@
+/* Page history side panel (canvas overlay and load-error screen) */
+.history-panel {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	width: 340px;
+	max-width: 100vw;
+	z-index: 300;
+	display: flex;
+	flex-direction: column;
+	background: var(--color-panel, #fff);
+	color: var(--color-text, #111);
+	border-left: 1px solid var(--color-divider, #e5e5e5);
+	box-shadow: -2px 0 12px rgba(0, 0, 0, 0.08);
+	font-size: 13px;
+}
+/* The chat sidebar is fixed to the right edge; sit beside it rather than under it */
+.sidebar-open .history-panel {
+	right: 350px;
+}
+/* ...and its toggle tab hangs over our header */
+.sidebar-open .history-header {
+	padding-right: 40px;
+}
+.history-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 12px 14px;
+	border-bottom: 1px solid var(--color-divider, #e5e5e5);
+}
+.history-header h3 {
+	margin: 0;
+	font-size: 15px;
+	font-weight: 600;
+}
+.history-icon-btn {
+	width: 28px;
+	height: 28px;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	font-size: 14px;
+}
+.history-icon-btn:hover {
+	background: var(--color-low, #f0f0f0);
+}
+.history-save {
+	display: flex;
+	gap: 6px;
+	padding: 10px 14px;
+	border-bottom: 1px solid var(--color-divider, #e5e5e5);
+}
+.history-save input {
+	flex: 1;
+	min-width: 0;
+	height: 30px;
+	padding: 0 8px;
+	border: 1px solid var(--color-divider, #d8d8d8);
+	border-radius: 6px;
+	background: var(--color-background, #fff);
+	color: inherit;
+	font: inherit;
+}
+.history-note {
+	margin: 0;
+	padding: 10px 14px;
+	color: var(--color-text-1, #666);
+	border-bottom: 1px solid var(--color-divider, #e5e5e5);
+}
+.history-error {
+	margin: 10px 14px 0;
+	padding: 8px 10px;
+	border-radius: 6px;
+	background: #fdecec;
+	color: #a12626;
+}
+.history-list {
+	flex: 1;
+	overflow-y: auto;
+	padding: 6px 0 16px;
+}
+.history-empty {
+	padding: 24px 14px;
+	color: var(--color-text-1, #666);
+	text-align: center;
+}
+.history-day h4 {
+	margin: 10px 14px 4px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--color-text-1, #777);
+}
+.history-row {
+	padding: 8px 14px;
+	border-top: 1px solid var(--color-divider, #f0f0f0);
+}
+.history-row:hover {
+	background: var(--color-low, #fafafa);
+}
+.history-row-main {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+.history-time {
+	font-variant-numeric: tabular-nums;
+	font-weight: 600;
+}
+.history-kind {
+	padding: 1px 6px;
+	border-radius: 999px;
+	font-size: 11px;
+	background: var(--color-low, #eee);
+	color: var(--color-text-1, #555);
+}
+.history-kind--manual {
+	background: #e3f0ff;
+	color: #1f5fa8;
+}
+.history-kind--pre-restore {
+	background: #fff3d6;
+	color: #8a5a00;
+}
+.history-kind--quarantine {
+	background: #fdecec;
+	color: #a12626;
+}
+.history-label {
+	font-weight: 500;
+}
+.history-row-meta {
+	margin-top: 2px;
+	color: var(--color-text-1, #777);
+	font-size: 12px;
+	min-height: 14px;
+}
+.history-row-actions {
+	display: flex;
+	gap: 6px;
+	margin-top: 6px;
+}
+.history-btn {
+	height: 26px;
+	padding: 0 10px;
+	border: 1px solid var(--color-divider, #d8d8d8);
+	border-radius: 6px;
+	background: var(--color-background, #fff);
+	color: inherit;
+	font: inherit;
+	font-size: 12px;
+	cursor: pointer;
+}
+.history-btn:hover:not(:disabled) {
+	background: var(--color-low, #f0f0f0);
+}
+.history-btn:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+.history-btn--primary {
+	background: #2f80ed;
+	border-color: #2f80ed;
+	color: #fff;
+}
+.history-btn--primary:hover:not(:disabled) {
+	background: #2569c7;
+}
+.history-btn--danger {
+	color: #a12626;
+}

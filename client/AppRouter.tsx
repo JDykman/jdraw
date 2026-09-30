@@ -35,6 +35,9 @@ export function AppRouter() {
 	const { user, loading } = useAuth()
 	const [currentPageId, setCurrentPageId] = useState<string | null>(null)
 	const [restoredForUserId, setRestoredForUserId] = useState<string | null>(null)
+	// Bumped to remount the page session (fresh sync connection) without leaving the page
+	const [sessionKey, setSessionKey] = useState(0)
+	const reloadPage = useCallback(() => setSessionKey((k) => k + 1), [])
 
 	useEffect(() => {
 		if (!user) {
@@ -83,7 +86,7 @@ export function AppRouter() {
 
 	return (
 		<RootErrorBoundary>
-			<App pageId={currentPageId} onBack={handleBackToPages} />
+			<App key={`${currentPageId}:${sessionKey}`} pageId={currentPageId} onBack={handleBackToPages} onReload={reloadPage} />
 		</RootErrorBoundary>
 	)
 }
