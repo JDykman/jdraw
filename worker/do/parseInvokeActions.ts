@@ -12,6 +12,8 @@
  * string value) are returned.
  */
 
+import { closeAndParseJson } from './closeAndParseJson'
+
 // Parameters that are always plain text, even when they look like numbers or JSON
 const STRING_PARAMS = new Set(['text', 'intent', 'title', 'label', 'note', 'name', 'message'])
 
@@ -34,8 +36,9 @@ function parseValue(name: string, raw: string, complete: boolean): unknown {
 	const value = decodeEntities(raw.trim())
 	if (STRING_PARAMS.has(name)) return value
 	if (!complete) {
-		// Half-streamed JSON isn't usable yet; half-streamed text is
-		return /^[[{]/.test(value) ? undefined : value
+		// Close half-streamed JSON the same way the JSON action path does, so action utils see
+		// partial arrays/objects rather than a missing field
+		return /^[[{]/.test(value) ? (closeAndParseJson(value) ?? undefined) : value
 	}
 	if (/^[[{]/.test(value) || /^-?\d+(\.\d+)?$/.test(value) || /^(true|false|null)$/.test(value)) {
 		try {
@@ -43,6 +46,13 @@ function parseValue(name: string, raw: string, complete: boolean): unknown {
 		} catch {
 			return value
 		}
+	}
+	// A list written as plain text ("a, b" or one id per line) where the schema wants an array
+	if (/ids$/i.test(name)) {
+		return value
+			.split(/[\s,]+/)
+			.map((v) => v.replace(/^["'[]+|["'\]]+$/g, ''))
+			.filter(Boolean)
 	}
 	return value
 }

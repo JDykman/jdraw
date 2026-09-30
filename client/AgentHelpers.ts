@@ -314,7 +314,12 @@ export class AgentHelpers {
 	 * @returns The array of ids, with imaginary ids removed.
 	 */
 	ensureShapeIdsExist(ids: SimpleShapeId[]): SimpleShapeId[] {
-		return ids.map((id) => this.ensureShapeIdExists(id)).filter((v) => v !== null)
+		// Model output isn't guaranteed to match the schema (e.g. a single id, or nothing yet mid-stream)
+		const list: unknown[] = Array.isArray(ids) ? ids : typeof ids === 'string' ? [ids] : []
+		return list
+			.filter((id): id is SimpleShapeId => typeof id === 'string')
+			.map((id) => this.ensureShapeIdExists(id))
+			.filter((v) => v !== null)
 	}
 
 	/**

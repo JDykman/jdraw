@@ -40,9 +40,21 @@ describe('parseInvokeActions', () => {
 		assert.equal(actions.length, 2)
 		assert.equal(actions[1]._type, 'create')
 		assert.equal(actions[1].intent, 'Mobile box')
-		assert.equal(actions[1].shape, undefined, 'incomplete JSON is left out until it finishes')
+		assert.equal(actions[1].shape, undefined, 'unparseable partial JSON is left out until more arrives')
 
 		const streamingText = parseInvokeActions('<invoke name="message"><parameter name="text">Hello wor')
 		assert.equal(streamingText[0].text, 'Hello wor')
+	})
+
+	it('closes half-streamed arrays like the JSON path does', () => {
+		const [a] = parseInvokeActions('<invoke name="align"><parameter name="shapeIds">["a","b')
+		assert.deepEqual(a.shapeIds, ['a', 'b'])
+	})
+
+	it('turns plain-text id lists into arrays', () => {
+		const [a] = parseInvokeActions('<invoke name="delete"><parameter name="shapeIds">b_mob, b_auth\nb_user</parameter></invoke>')
+		assert.deepEqual(a.shapeIds, ['b_mob', 'b_auth', 'b_user'])
+		const [b] = parseInvokeActions('<invoke name="delete"><parameter name="shapeIds">b_mob</parameter></invoke>')
+		assert.deepEqual(b.shapeIds, ['b_mob'])
 	})
 })

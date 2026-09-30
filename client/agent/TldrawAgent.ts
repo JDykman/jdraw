@@ -630,14 +630,32 @@ export class TldrawAgent {
 									incompleteDiff = null
 								}
 
-								// Sanitize the agent's action
-								const transformedAction = actionUtil.sanitizeAction(action, helpers)
-								if (!transformedAction) {
+								// Sanitize and apply. A malformed action from the model must not take down the
+								// editor (an error escaping here crashes tldraw), so skip it and say so instead.
+								let transformedAction: typeof action | null
+								let result: ReturnType<typeof this.actions.act>
+								try {
+									transformedAction = actionUtil.sanitizeAction(action, helpers)
+									if (!transformedAction) return
+									result = this.actions.act(transformedAction, helpers)
+								} catch (error) {
+									console.warn(`Skipped malformed "${action._type}" action:`, error, action)
+									if (action.complete) {
+										this.chat.push({
+											type: 'action',
+											action: {
+												_type: 'message',
+												text: `⚠️ Skipped a \`${action._type}\` action the model got wrong: ${error instanceof Error ? error.message : String(error)}`,
+												complete: true,
+												time: 0,
+											},
+											diff: { added: {}, updated: {}, removed: {} },
+											acceptance: 'accepted',
+										})
+									}
 									return
 								}
-
-								// Apply the action to the app and editor
-								const { diff, promise } = this.actions.act(transformedAction, helpers)
+								const { diff, promise } = result
 
 								if (promise) {
 									actionPromises.push(promise)
