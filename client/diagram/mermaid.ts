@@ -1,12 +1,13 @@
-import type { DiagramEdge, DiagramGraph, Direction, GeoNode, NodeShape } from './graph'
+import type { DiagramEdge, DiagramGraph, DiagramGroup, Direction, GeoNode, NodeShape } from './graph'
 
 /**
  * Mermaid flowchart support (the `graph` / `flowchart` diagram type).
  *
  * Handles: direction, node shapes, quoted/unquoted labels, `A --> B --> C` chains, `A & B --> C`,
  * edge labels (`-->|x|` and `-- x -->`), dashed (`-.->`), thick (`==>`), no-head (`---`),
- * circle/cross heads (`--o`, `--x`), bidirectional (`<-->`) and `:::class` suffixes.
- * Ignored: subgraph/end, style, classDef, class, click, linkStyle and comments (`%%`).
+ * circle/cross heads (`--o`, `--x`), bidirectional (`<-->`), `:::class` suffixes and
+ * `subgraph … end` blocks (a node belongs to the innermost subgraph it is first defined in).
+ * Ignored: style, classDef, class, click, linkStyle, direction and comments (`%%`).
  */
 
 export function looksLikeMermaid(text: string): boolean {
@@ -30,7 +31,18 @@ const NODE_SHAPES: [string, string, NodeShape][] = [
 	['>', ']', 'rectangle'],
 ]
 
-const IGNORED_LINE = /^(subgraph\b|end\b|style\b|classDef\b|class\b|click\b|linkStyle\b|direction\b)/i
+const IGNORED_LINE = /^(style\b|classDef\b|class\b|click\b|linkStyle\b|direction\b)/i
+
+/** `subgraph id["Label"]`, `subgraph id[Label]`, `subgraph Label words` */
+function parseSubgraph(line: string): DiagramGroup | null {
+	const m = /^subgraph\s+(.+?)\s*$/i.exec(line)
+	if (!m) return null
+	const rest = m[1]
+	const bracketed = /^([\w-]+)\s*\[\s*(.+?)\s*\]$/.exec(rest)
+	if (bracketed) return { id: bracketed[1], label: decodeLabel(bracketed[2]) }
+	const label = decodeLabel(rest)
+	return { id: label.replace(/[^\w-]+/g, '_'), label }
+}
 
 class Cursor {
 	i = 0
@@ -195,6 +207,9 @@ export function parseMermaid(text: string): DiagramGraph {
 
 	const nodes = new Map<string, GeoNode>()
 	const edges: DiagramEdge[] = []
+	const groups = new Map<string, DiagramGroup>()
+	// Innermost open subgraph; nodes first seen inside it belong to it
+	const groupStack: string[] = []
 
 	const touch = (ref: ParsedNodeRef) => {
 		const existing = nodes.get(ref.id)
@@ -203,12 +218,29 @@ export function parseMermaid(text: string): DiagramGraph {
 			if (ref.label !== undefined) existing.label = ref.label
 			if (ref.shape) existing.shape = ref.shape
 		} else {
-			nodes.set(ref.id, { kind: 'geo', id: ref.id, label: ref.label ?? ref.id, shape: ref.shape ?? 'rectangle' })
+			const group = groupStack[groupStack.length - 1]
+			nodes.set(ref.id, {
+				kind: 'geo',
+				id: ref.id,
+				label: ref.label ?? ref.id,
+				shape: ref.shape ?? 'rectangle',
+				...(group ? { group } : {}),
+			})
 		}
 	}
 
 	for (const line of lines.slice(1)) {
 		if (IGNORED_LINE.test(line)) continue
+		const subgraph = parseSubgraph(line)
+		if (subgraph) {
+			if (!groups.has(subgraph.id)) groups.set(subgraph.id, subgraph)
+			groupStack.push(subgraph.id)
+			continue
+		}
+		if (/^end$/i.test(line)) {
+			groupStack.pop()
+			continue
+		}
 		const c = new Cursor(line)
 		let left = parseNodeGroup(c)
 		if (!left) continue
@@ -237,7 +269,9 @@ export function parseMermaid(text: string): DiagramGraph {
 	}
 
 	if (nodes.size === 0) throw new MermaidParseError('No nodes found')
-	return { direction, nodes: [...nodes.values()], edges }
+	const used = new Set([...nodes.values()].map((n) => n.group))
+	const usedGroups = [...groups.values()].filter((g) => used.has(g.id))
+	return { direction, nodes: [...nodes.values()], edges, ...(usedGroups.length ? { groups: usedGroups } : {}) }
 }
 
 // ---------------------------------------------------------------------------
@@ -268,10 +302,20 @@ function edgeToken(e: DiagramEdge): string {
 
 export function toMermaid(graph: DiagramGraph): string {
 	const out = [`flowchart ${graph.direction === 'TB' ? 'TD' : graph.direction}`]
-	for (const n of graph.nodes) {
-		if (n.kind !== 'geo') continue
+	const nodeLine = (n: GeoNode) => {
 		const [open, close] = SHAPE_BRACKETS[n.shape] ?? ['[', ']']
-		out.push(`    ${n.id}${open}${encodeLabel(n.label)}${close}`)
+		return `${n.id}${open}${encodeLabel(n.label)}${close}`
+	}
+	for (const g of graph.groups ?? []) {
+		out.push(`    subgraph ${g.id}[${encodeLabel(g.label)}]`)
+		for (const n of graph.nodes) {
+			if (n.kind === 'geo' && n.group === g.id) out.push(`        ${nodeLine(n)}`)
+		}
+		out.push('    end')
+	}
+	for (const n of graph.nodes) {
+		if (n.kind !== 'geo' || (n.group && graph.groups?.some((g) => g.id === n.group))) continue
+		out.push(`    ${nodeLine(n)}`)
 	}
 	for (const e of graph.edges) {
 		const label = e.label ? `|${encodeLabel(e.label)}|` : ''

@@ -2,6 +2,7 @@ import {
 	createShapeId,
 	Editor,
 	TLArrowShape,
+	TLFrameShape,
 	TLGeoShape,
 	TLShapeId,
 	toRichText,
@@ -95,9 +96,9 @@ function createNodeShape(editor: Editor, node: DiagramNode, id: TLShapeId) {
 }
 
 /**
- * Create a diagram on the canvas: node shapes, a dagre layout, then arrows bound to the nodes
- * (to specific rows for table nodes). Centred on `at` (default: viewport centre) and selected.
- * Returns the ids of everything created.
+ * Create a diagram on the canvas: node shapes, a dagre layout, a frame per group with its
+ * members inside, then arrows bound to the nodes (to specific rows for table nodes). Centred on
+ * `at` (default: viewport centre) and selected. Returns the ids of everything created.
  */
 export function insertGraph(editor: Editor, graph: DiagramGraph, at?: VecLike): TLShapeId[] {
 	if (graph.nodes.length === 0) return []
@@ -114,13 +115,20 @@ export function insertGraph(editor: Editor, graph: DiagramGraph, at?: VecLike): 
 		}
 
 		// Lay out using the real rendered sizes (geo text can grow the shape)
+		const groupIds = new Set((graph.groups ?? []).map((g) => g.id))
 		const sizes = graph.nodes.map((n) => {
 			const b = editor.getShapePageBounds(shapeIds.get(n.id)!)!
-			return { id: n.id, w: b.w, h: b.h }
+			return { id: n.id, w: b.w, h: b.h, ...(n.group && groupIds.has(n.group) ? { group: n.group } : {}) }
 		})
-		const positions = computeLayout(sizes, graph.edges, { direction: graph.direction })
-		const width = Math.max(...sizes.map((s) => positions.get(s.id)!.x + s.w))
-		const height = Math.max(...sizes.map((s) => positions.get(s.id)!.y + s.h))
+		const { positions, groups } = computeLayout(sizes, graph.edges, { direction: graph.direction })
+		const width = Math.max(
+			...sizes.map((s) => positions.get(s.id)!.x + s.w),
+			...[...groups.values()].map((b) => b.x + b.w)
+		)
+		const height = Math.max(
+			...sizes.map((s) => positions.get(s.id)!.y + s.h),
+			...[...groups.values()].map((b) => b.y + b.h)
+		)
 		const center = at ?? editor.getViewportPageBounds().center
 		const origin = new Vec(center.x - width / 2, center.y - height / 2)
 		editor.updateShapes(
@@ -130,6 +138,24 @@ export function insertGraph(editor: Editor, graph: DiagramGraph, at?: VecLike): 
 				return { id: shape.id, type: shape.type, x: origin.x + p.x, y: origin.y + p.y }
 			})
 		)
+
+		// Frames behind their members; members keep their page position when reparented
+		for (const group of graph.groups ?? []) {
+			const b = groups.get(group.id)
+			if (!b) continue
+			const frameId = createShapeId()
+			editor.createShape<TLFrameShape>({
+				id: frameId,
+				type: 'frame',
+				x: origin.x + b.x,
+				y: origin.y + b.y,
+				props: { w: b.w, h: b.h, name: group.label },
+			})
+			editor.sendToBack([frameId])
+			const members = graph.nodes.filter((n) => n.group === group.id).map((n) => shapeIds.get(n.id)!)
+			editor.reparentShapes(members, frameId)
+			created.push(frameId)
+		}
 
 		for (const edge of graph.edges) {
 			const fromId = shapeIds.get(edge.from)

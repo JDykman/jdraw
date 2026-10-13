@@ -8,6 +8,13 @@ export type NodeShape = TLGeoShapeGeoStyle
 interface BaseNode {
 	/** Stable id within the graph (e.g. the Mermaid node id or SQL table name) */
 	id: string
+	/** Group (Mermaid subgraph / SQL section) the node belongs to; drawn as a frame */
+	group?: string
+}
+
+export interface DiagramGroup {
+	id: string
+	label: string
 }
 
 export interface GeoNode extends BaseNode {
@@ -45,4 +52,5 @@ export interface DiagramGraph {
 	direction: Direction
 	nodes: DiagramNode[]
 	edges: DiagramEdge[]
+	groups?: DiagramGroup[]
 }

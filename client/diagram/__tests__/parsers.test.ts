@@ -61,6 +61,32 @@ describe('mermaid', () => {
 		assert.equal(g.direction, 'TB')
 	})
 
+	it('groups nodes by the subgraph they are first defined in', () => {
+		const g = parseMermaid(`flowchart TB
+			subgraph IDN["Identity & Roster"]
+				users["users<br/>email"]
+				roles[Roles]
+			end
+			subgraph Billing
+				invoices
+			end
+			loose --> users
+			users --> roles
+			invoices --> users`)
+		const node = (id: string) => g.nodes.find((n) => n.id === id)!
+		assert.deepEqual(g.groups, [
+			{ id: 'IDN', label: 'Identity & Roster' },
+			{ id: 'Billing', label: 'Billing' },
+		])
+		assert.equal(node('users').group, 'IDN')
+		assert.equal(node('roles').group, 'IDN')
+		assert.equal(node('invoices').group, 'Billing')
+		assert.equal(node('loose').group, undefined)
+		assert.equal(g.edges.length, 3)
+		// Export keeps the subgraphs and re-imports to the same graph
+		assert.deepEqual(parseMermaid(toMermaid(g)), g)
+	})
+
 	it('rejects other diagram types', () => {
 		assert.throws(() => parseMermaid('sequenceDiagram\nA->>B: x'), /Only flowcharts/)
 	})
@@ -79,6 +105,38 @@ describe('mermaid', () => {
 })
 
 describe('sql schema', () => {
+	it('groups tables under banner comments', () => {
+		const g = parseSqlSchema(`
+			-- ===== Identity =====
+			CREATE TABLE users (id uuid PRIMARY KEY);
+			-- a plain comment, not a banner
+			CREATE TABLE roles (id uuid PRIMARY KEY, user_id uuid REFERENCES users(id));
+			-- --- Billing & Payments ---
+			CREATE TABLE invoices (id uuid PRIMARY KEY, user_id uuid REFERENCES users(id));
+			-- ### Unused section ###
+		`)
+		assert.deepEqual(g.groups, [
+			{ id: 'identity', label: 'Identity' },
+			{ id: 'billing_payments', label: 'Billing & Payments' },
+		])
+		assert.deepEqual(
+			g.nodes.map((n) => [n.id, n.group]),
+			[
+				['users', 'identity'],
+				['roles', 'identity'],
+				['invoices', 'billing_payments'],
+			]
+		)
+		assert.equal(g.edges.length, 2)
+		assert.equal(g.edges[1].fromRow, 1)
+	})
+
+	it('leaves tables ungrouped without banners', () => {
+		const g = parseSqlSchema('CREATE TABLE a (id int PRIMARY KEY); CREATE TABLE b (a_id int REFERENCES a(id));')
+		assert.equal(g.groups, undefined)
+		assert.ok(g.nodes.every((n) => n.group === undefined))
+	})
+
 	const ddl = `
 		-- users table
 		CREATE TABLE IF NOT EXISTS public.users (

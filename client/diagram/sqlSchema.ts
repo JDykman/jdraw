@@ -1,9 +1,11 @@
-import type { DiagramEdge, DiagramGraph, TableNode } from './graph'
+import type { DiagramEdge, DiagramGraph, DiagramGroup, TableNode } from './graph'
 
 /**
  * SQL DDL → ER diagram. Reads CREATE TABLE statements (column + table constraints) and
  * ALTER TABLE … ADD FOREIGN KEY. Each table becomes a table shape with Column / Type / Key
  * columns (the layout "Copy as SQL" recognises), and each foreign key an arrow between rows.
+ * Banner comments (`-- ===== Identity =====`, `-- --- Billing ---`, `-- ### Health ###`)
+ * start a section; the tables that follow are grouped in a frame with that name.
  */
 
 export function looksLikeSqlSchema(text: string): boolean {
@@ -22,10 +24,29 @@ interface Column {
 interface Table {
 	name: string
 	columns: Column[]
+	group?: string
 }
 
+/** Blank out comments without changing offsets, so section positions line up with the text. */
 function stripComments(sql: string) {
-	return sql.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/--[^\n]*/g, ' ').replace(/#[^\n]*/g, ' ')
+	const blank = (m: string) => m.replace(/[^\n]/g, ' ')
+	return sql.replace(/\/\*[\s\S]*?\*\//g, blank).replace(/--[^\n]*/g, blank).replace(/#[^\n]*/g, blank)
+}
+
+const SECTION_BANNER = /^[ \t]*--[ \t]*([=#*-]{2,})[ \t]*(.+?)[ \t]*[=#*-]{2,}[ \t]*$/gm
+
+/** Section banners with the text offset they start at. */
+function findSections(sql: string): { at: number; group: DiagramGroup }[] {
+	const out: { at: number; group: DiagramGroup }[] = []
+	const used = new Set<string>()
+	for (const m of sql.matchAll(SECTION_BANNER)) {
+		const label = m[2].trim()
+		let id = label.toLowerCase().replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '') || 'section'
+		while (used.has(id)) id += '_'
+		used.add(id)
+		out.push({ at: m.index!, group: { id, label } })
+	}
+	return out
 }
 
 /** Text between the paren at `open` and its match. */
@@ -141,8 +162,17 @@ function applyTableConstraint(table: Table, def: string) {
 const TABLE_CONSTRAINT = /^(constraint|primary\s+key|foreign\s+key|unique|check|index|key|fulltext|spatial|exclude)\b/i
 
 export function parseSqlSchema(text: string): DiagramGraph {
+	const sections = findSections(text)
 	const sql = stripComments(text)
 	const tables: Table[] = []
+	const sectionAt = (offset: number) => {
+		let current: DiagramGroup | undefined
+		for (const s of sections) {
+			if (s.at < offset) current = s.group
+			else break
+		}
+		return current
+	}
 	const createRe = new RegExp(
 		`create\\s+(?:(?:global\\s+|local\\s+)?(?:temporary|temp)\\s+|unlogged\\s+)?table\\s+(?:if\\s+not\\s+exists\\s+)?(${QUALIFIED})\\s*\\(`,
 		'gi'
@@ -151,7 +181,8 @@ export function parseSqlSchema(text: string): DiagramGraph {
 	while ((m = createRe.exec(sql))) {
 		const group = balanced(sql, m.index + m[0].length - 1)
 		if (!group) break
-		const table: Table = { name: lastSegment(m[1]), columns: [] }
+		const section = sectionAt(m.index)
+		const table: Table = { name: lastSegment(m[1]), columns: [], ...(section ? { group: section.id } : {}) }
 		const constraints: string[] = []
 		for (const part of splitTopLevel(group.body)) {
 			if (TABLE_CONSTRAINT.test(part)) constraints.push(part)
@@ -179,7 +210,9 @@ export function parseSqlSchema(text: string): DiagramGraph {
 		title: t.name,
 		header: ['Column', 'Type', 'Key'],
 		rows: t.columns.map((c) => [c.name, c.type.toLowerCase(), keyCell(c)]),
+		...(t.group ? { group: t.group } : {}),
 	}))
+	const usedGroups = sections.map((s) => s.group).filter((g) => tables.some((t) => t.group === g.id))
 
 	const edges: DiagramEdge[] = []
 	for (const t of tables) {
@@ -198,7 +231,7 @@ export function parseSqlSchema(text: string): DiagramGraph {
 		})
 	}
 
-	return { direction: 'LR', nodes, edges }
+	return { direction: 'LR', nodes, edges, ...(usedGroups.length ? { groups: usedGroups } : {}) }
 }
 
 function keyCell(c: Column): string {
