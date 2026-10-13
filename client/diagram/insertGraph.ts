@@ -10,11 +10,23 @@ import {
 } from 'tldraw'
 import { rowAnchorPoint } from '../../shared/table/tableOps'
 import { TABLE_TITLE_HEIGHT, TLTableShape } from '../../shared/table/tableShapeProps'
-import type { DiagramGraph, DiagramNode, GeoNode, TableNode } from './graph'
+import type { DiagramGraph, DiagramNode, Direction, GeoNode, TableNode } from './graph'
 import { computeLayout } from './layout'
 
 const TABLE_ROW_HEIGHT = 32
 const CHAR_W = 8.5
+const SELF_LOOP_BEND = -56
+
+/**
+ * Where a self-loop leaves and re-enters its shape: the side orthogonal to the layout flow, so
+ * it doesn't sit on top of the edges to the next rank. The negative bend bows it outwards.
+ */
+function selfLoopAnchors(direction: Direction) {
+	const sideways = direction === 'LR' || direction === 'RL'
+	return sideways
+		? { start: { x: 0.25, y: 0 }, end: { x: 0.75, y: 0 } }
+		: { start: { x: 1, y: 0.25 }, end: { x: 1, y: 0.75 } }
+}
 
 function estimateGeoSize(node: GeoNode) {
 	const lines = node.label.split('\n')
@@ -148,6 +160,7 @@ function createArrow(
 	if (!fromBounds || !toBounds) return null
 	const fromNode = graph.nodes.find((n) => n.id === edge.from)!
 	const toNode = graph.nodes.find((n) => n.id === edge.to)!
+	const isSelfLoop = fromId === toId
 
 	// Table rows attach on the side facing the other table
 	const toIsRight = toBounds.center.x >= fromBounds.center.x
@@ -157,8 +170,16 @@ function createArrow(
 		const p = rowAnchorPoint(shape.props, row + 1, side)
 		return { normalizedAnchor: { x: p.x / shape.props.w, y: p.y / shape.props.h }, isPrecise: true }
 	}
-	const start = anchor(fromId, fromNode, edge.fromRow, toIsRight ? 'right' : 'left')
-	const end = anchor(toId, toNode, edge.toRow, toIsRight ? 'left' : 'right')
+	// A self-loop (`A --> A`) must leave and re-enter at different points: both terminals bound to
+	// the same spot make a zero-length arrow whose geometry is NaN and breaks rendering. Loop out
+	// of the right edge and back in below, bowed outwards.
+	const loop = selfLoopAnchors(graph.direction)
+	const start = isSelfLoop
+		? { normalizedAnchor: loop.start, isPrecise: true }
+		: anchor(fromId, fromNode, edge.fromRow, toIsRight ? 'right' : 'left')
+	const end = isSelfLoop
+		? { normalizedAnchor: loop.end, isPrecise: true }
+		: anchor(toId, toNode, edge.toRow, toIsRight ? 'left' : 'right')
 	const startPoint = {
 		x: fromBounds.x + start.normalizedAnchor.x * fromBounds.w,
 		y: fromBounds.y + start.normalizedAnchor.y * fromBounds.h,
@@ -175,7 +196,8 @@ function createArrow(
 		props: {
 			start: { x: 0, y: 0 },
 			end: { x: endPoint.x - startPoint.x, y: endPoint.y - startPoint.y },
-			kind: isTableEdge ? 'elbow' : 'arc',
+			kind: isTableEdge && !isSelfLoop ? 'elbow' : 'arc',
+			...(isSelfLoop ? { bend: SELF_LOOP_BEND } : {}),
 			arrowheadEnd: edge.head ?? 'arrow',
 			arrowheadStart: edge.tail ?? 'none',
 			richText: toRichText(edge.label ?? ''),
